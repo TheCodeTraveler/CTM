@@ -107,7 +107,10 @@ public partial class Snackbar
 				.AddButton(new AppNotificationButton(ActionButtonText)
 					.AddArgument(snackbarIdentifierArgumentKey, id))
 				.BuildNotification();
-			platformSnackbar.Expiration = DateTimeOffset.Now.Add(Duration);
+			// DateTimeOffset.Add throws once the sum passes DateTimeOffset.MaxValue (a Duration of TimeSpan.MaxValue), so such a Duration
+			// expires as late as a DateTimeOffset can say, which DismissAfterDurationAsync also treats as never
+			var now = DateTimeOffset.Now;
+			platformSnackbar.Expiration = Duration > DateTimeOffset.MaxValue - now ? DateTimeOffset.MaxValue : now.Add(Duration);
 
 			AppNotificationManager.Default.Show(platformSnackbar);
 
