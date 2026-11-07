@@ -2,6 +2,7 @@ name: Device Tests
 
 # dotnet-build.yml calls this workflow, so the device tests are part of the Build run and its jobs can wait for them.
 on:
+    push:
     workflow_call:
     workflow_dispatch:
         inputs:
@@ -29,7 +30,7 @@ permissions:
 env:
     DOTNET_NOLOGO: true
     DOTNET_CLI_TELEMETRY_OPTOUT: true
-    TEST_FILTER: ${{ inputs.test-filter }}
+    TEST_FILTER: ''
     # Release, the configuration that apps ship in (eng/devices/README.md, "CI"). Both steps of a job pass it: the test step looks for the
     # app that the build step made for that configuration.
     DEVICE_TEST_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
