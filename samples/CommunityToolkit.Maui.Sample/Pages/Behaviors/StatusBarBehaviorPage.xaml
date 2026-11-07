@@ -137,7 +137,7 @@
                 Minimum="0"
                 Value="{Binding AlphaSliderValue}" />
 
-            <Label Text="Select StatusBar and NavigationBar style" />
+            <Label Text="Select StatusBar style" />
 
             <HorizontalStackLayout Spacing="15">
                 <RadioButton Content="Default"
@@ -161,7 +161,7 @@
              <Button
                 Clicked="OnBrokenShellButtonClicked"
                 HorizontalOptions="Center"
-                Text="Go to Broken Shell.TitleView"
+                Text="Go to Shell.TitleView"
                 VerticalOptions="Center" />
         </VerticalStackLayout>
     </ScrollView>

@@ -72,7 +72,7 @@
             <Line Style="{StaticResource HR}" />
             <Label Style="{StaticResource Description}" Text="RatingView styled like a trusted review." />
             <Line Style="{StaticResource HR}" />
-            <Label Text="A trust review 4.7 out of 5 mock-up" />
+            <Label Text="A trust review 4.5 out of 5 mock-up" />
             <Border
                 Margin="0"
                 Padding="10"
@@ -120,6 +120,7 @@
                         HorizontalOptions="Start"
                         IsReadOnly="True"
                         ShapePadding="3"
+                        Shape="Custom"
                         ShapeDiameter="40"
                         MaximumRating="5"
                         Rating="4.5"
@@ -159,6 +160,7 @@
                 HorizontalOptions="Start"
                 IsReadOnly="True"
                 ShapePadding="3"
+                Shape="Custom"
                 ShapeDiameter="40"
                 MaximumRating="5"
                 Rating="4.9"
@@ -175,6 +177,7 @@
                 HorizontalOptions="Start"
                 IsReadOnly="True"
                 ShapePadding="3"
+                Shape="Custom"
                 ShapeDiameter="40"
                 MaximumRating="5"
                 Rating="1"
@@ -190,6 +193,7 @@
                 HorizontalOptions="Start"
                 IsReadOnly="True"
                 ShapePadding="2"
+                Shape="Custom"
                 ShapeDiameter="40"
                 MaximumRating="5"
                 Rating="4.5"
@@ -265,7 +269,7 @@
                     <Label
                         Margin="8,0,0,0"
                         HorizontalOptions="Start"
-                        SemanticProperties.Description="Correct, as of 2024-08-20"
+                        SemanticProperties.Description="12,732 downloads, as of 2024-08-20"
                         Text="12,732 downloads"
                         VerticalOptions="Center" />
                 </HorizontalStackLayout>

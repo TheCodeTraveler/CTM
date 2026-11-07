@@ -115,11 +115,8 @@ public static class MauiProgram
 #endif
 		});
 
-		builder.Services.AddHttpClient<ByteArrayToImageSourceConverterViewModel>()
-						.AddStandardResilienceHandler(static options => options.Retry = new MobileHttpRetryStrategyOptions());
-
-		builder.Services.AddHttpClient<MediaElementFromStreamPage>()
-			.AddStandardResilienceHandler(static options => options.Retry = new MobileHttpRetryStrategyOptions());
+		// Typed-client registrations don't work here: AddTransientWithShellRoute later re-registers each page and view model, replacing the typed client, so they would get a plain HttpClient without this handler
+		builder.Services.ConfigureHttpClientDefaults(static http => http.AddStandardResilienceHandler(static options => options.Retry = new MobileHttpRetryStrategyOptions()));
 
 		RegisterViewsAndViewModels(builder.Services);
 		RegisterEssentials(builder.Services);
@@ -149,6 +146,7 @@ public static class MauiProgram
 		services.AddTransientWithShellRoute<ToastPage, ToastViewModel>();
 
 		// Add AvatarView pages + ViewModels
+		services.AddTransientWithShellRoute<AvatarViewsPage, AvatarViewsViewModel>();
 		services.AddTransientWithShellRoute<AvatarViewBindablePropertiesPage, AvatarViewBindablePropertiesViewModel>();
 		services.AddTransientWithShellRoute<AvatarViewBordersPage, AvatarViewBordersViewModel>();
 		services.AddTransientWithShellRoute<AvatarViewColorsPage, AvatarViewColorsViewModel>();
@@ -245,6 +243,7 @@ public static class MauiProgram
 		services.AddTransientWithShellRoute<DrawingViewPage, DrawingViewViewModel>();
 		services.AddTransientWithShellRoute<ExpanderPage, ExpanderViewModel>();
 		services.AddTransientWithShellRoute<LazyViewPage, LazyViewViewModel>();
+		services.AddTransientWithShellRoute<MediaElementsPage, MediaElementsViewModel>();
 		services.AddTransientWithShellRoute<MediaElementPage, MediaElementViewModel>();
 		services.AddTransientWithShellRoute<MediaElementFromStreamPage, MediaElementFromStreamViewModel>();
 		services.AddTransientWithShellRoute<MediaElementCarouselViewPage, MediaElementCarouselViewViewModel>();
@@ -253,6 +252,7 @@ public static class MauiProgram
 		services.AddTransientWithShellRoute<PopupsPage, PopupsViewModel>();
 		services.AddTransientWithShellRoute<PopupLayoutAlignmentPage, PopupLayoutAlignmentViewModel>();
 		services.AddTransientWithShellRoute<PopupPositionPage, PopupPositionViewModel>();
+		services.AddTransientWithShellRoute<RatingViewsPage, RatingViewsViewModel>();
 		services.AddTransientWithShellRoute<RatingViewCsharpPage, RatingViewCsharpViewModel>();
 		services.AddTransientWithShellRoute<RatingViewShowcasePage, RatingViewShowcaseViewModel>();
 		services.AddTransientWithShellRoute<RatingViewXamlPage, RatingViewXamlViewModel>();

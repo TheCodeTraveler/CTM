@@ -10,6 +10,7 @@ public sealed partial class CameraViewPage : BasePage<CameraViewViewModel>
 	readonly string imagePath;
 
 	Stream videoRecordingStream = Stream.Null;
+	bool havePermissionsBeenRequested;
 
 	public CameraViewPage(CameraViewViewModel viewModel, IFileSystem fileSystem, IFileSaver fileSaver) : base(viewModel)
 	{
@@ -26,6 +27,14 @@ public sealed partial class CameraViewPage : BasePage<CameraViewViewModel>
 	{
 		base.OnAppearing();
 
+		// The page appears again when ImageViewPage closes or Shell comes back to it: a permission that was denied would show its alert each time
+		if (havePermissionsBeenRequested)
+		{
+			return;
+		}
+
+		havePermissionsBeenRequested = true;
+
 		var cameraPermissionsRequest = await Permissions.RequestAsync<Permissions.Camera>();
 		if (cameraPermissionsRequest is not PermissionStatus.Granted)
 		{
@@ -38,7 +47,7 @@ public sealed partial class CameraViewPage : BasePage<CameraViewViewModel>
 			var microphonePermissionsRequest = await Permissions.RequestAsync<Permissions.Microphone>();
 			if (microphonePermissionsRequest is not PermissionStatus.Granted)
 			{
-				await Shell.Current.CurrentPage.DisplayAlertAsync("Microphone permission is not granted.", "Audio recording will not be available without the Microphone permission, and captured video will be silent.", "OK");
+				await Shell.Current.CurrentPage.DisplayAlertAsync("Microphone permission is not granted.", "On Android, video recording needs the Microphone permission. On iOS, Mac Catalyst and Windows, recorded videos will have no sound.", "OK");
 			}
 		}
 		catch (FileNotFoundException) when (OperatingSystem.IsWindows()) // Unpackaged Windows Apps do not generate the required file AppxManifest.xml 
