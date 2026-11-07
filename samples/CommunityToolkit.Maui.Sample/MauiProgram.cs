@@ -33,7 +33,6 @@ using Microsoft.Maui.LifecycleEvents;
 using Polly;
 
 #if WINDOWS10_0_17763_0_OR_GREATER
-using CommunityToolkit.Maui.Maps;
 using Microsoft.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
@@ -75,14 +74,12 @@ public static class MauiProgram
 #if IOS || MACCATALYST
 									handlers.AddHandler<CollectionView, Microsoft.Maui.Controls.Handlers.Items2.CollectionViewHandler2>();
 									handlers.AddHandler<CarouselView, Microsoft.Maui.Controls.Handlers.Items2.CarouselViewHandler2>();
+#elif ANDROID
+									// Material Components limit a button to 320dp (mtrl_btn_max_width). MAUI measures a Button within that limit, so a long
+									// caption wraps at 320dp even when the Button is laid out wider, and a full-width Button keeps the height of the wrapped caption
+									Microsoft.Maui.Handlers.ButtonHandler.Mapper.AppendToMapping("RemoveMaterialMaximumWidth", static (handler, _) => handler.PlatformView.SetMaxWidth(int.MaxValue));
 #endif
 								})
-
-#if WINDOWS
-								.UseMauiCommunityToolkitMaps("KEY") // You should add your own key here from https://bingmapsportal.com
-#else
-								.UseMauiMaps()
-#endif
 
 								.UseMauiApp<App>()
 								.ConfigureFonts(static fonts =>
@@ -123,8 +120,6 @@ public static class MauiProgram
 
 		builder.Services.AddHttpClient<MediaElementFromStreamPage>()
 			.AddStandardResilienceHandler(static options => options.Retry = new MobileHttpRetryStrategyOptions());
-
-		builder.Services.AddSingleton<AppShell>();
 
 		RegisterViewsAndViewModels(builder.Services);
 		RegisterEssentials(builder.Services);
@@ -246,12 +241,10 @@ public static class MauiProgram
 		services.AddTransientWithShellRoute<NavigationBarPage, NavigationBarAndroidViewModel>();
 
 		// Add Views Pages + ViewModels
-		services.AddTransientWithShellRoute<BasicMapsPage, BasicMapsViewModel>();
 		services.AddTransientWithShellRoute<CameraViewPage, CameraViewViewModel>();
 		services.AddTransientWithShellRoute<DrawingViewPage, DrawingViewViewModel>();
 		services.AddTransientWithShellRoute<ExpanderPage, ExpanderViewModel>();
 		services.AddTransientWithShellRoute<LazyViewPage, LazyViewViewModel>();
-		services.AddTransientWithShellRoute<MapsPinsPage, MapsPinsViewModel>();
 		services.AddTransientWithShellRoute<MediaElementPage, MediaElementViewModel>();
 		services.AddTransientWithShellRoute<MediaElementFromStreamPage, MediaElementFromStreamViewModel>();
 		services.AddTransientWithShellRoute<MediaElementCarouselViewPage, MediaElementCarouselViewViewModel>();

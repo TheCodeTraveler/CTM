@@ -177,6 +177,53 @@ public class ColorToRgbaStringConverterTests : BaseConverterTest<ColorToRgbaStri
 		Assert.Equal(expectedResult, resultConvertFrom);
 	}
 
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("fr-FR")]
+	[InlineData("en-US")]
+	[InlineData("uk-UA")]
+	public void ColorToRgbaStringConverter_RoundTripsWithCulture(string cultureName)
+	{
+		var culture = new System.Globalization.CultureInfo(cultureName);
+		var converter = new ColorToRgbaStringConverter();
+		var color = new Color(1f, 0f, 0f, 0.5f);
+
+		var colorString = converter.ConvertFrom(color, culture);
+		var result = converter.ConvertBackTo(colorString, culture);
+
+		AssertColorComparison(color, result);
+		Assert.Equal(color.Alpha, result.Alpha, 2);
+	}
+
+	[Theory]
+	[InlineData("RGBA(255,0,0,0,5)", 1f, 0f, 0f, 0.5f)]
+	[InlineData("RGBA(255, 0, 0, 0,5)", 1f, 0f, 0f, 0.5f)]
+	[InlineData("RGBA(255,0,0,1,5)", 1f, 0f, 0f, 1f)]
+	[InlineData("RGBA(255,0,0,-0,5)", 1f, 0f, 0f, 0f)]
+	public void ColorToRgbaStringConverter_ConvertBack_CommaDecimalInput_ParsesAndClampsAlpha(string colorString, float red, float green, float blue, float alpha)
+	{
+		var result = new ColorToRgbaStringConverter().ConvertBackTo(colorString, new System.Globalization.CultureInfo("de-DE"));
+
+		Assert.Equal(red, result.Red, 2);
+		Assert.Equal(green, result.Green, 2);
+		Assert.Equal(blue, result.Blue, 2);
+		Assert.Equal(alpha, result.Alpha, 2);
+	}
+
+	[Theory]
+	[InlineData("RGBA(256,0,0,0,5)")]
+	[InlineData("RGBA(255,0,0,abc)")]
+	[InlineData("RGBA(255,0,0)")]
+	[InlineData("not a color")]
+	public void ColorToRgbaStringConverter_ConvertBack_InvalidCultureAwareInput_ReturnsDefault(string colorString)
+	{
+		var converter = new ColorToRgbaStringConverter();
+
+		var result = converter.ConvertBackTo(colorString, new System.Globalization.CultureInfo("de-DE"));
+
+		Assert.Equal(converter.DefaultConvertBackReturnValue, result);
+	}
+
 	[Fact]
 	public void ColorToRgbStringConverterNullInputTest()
 	{
