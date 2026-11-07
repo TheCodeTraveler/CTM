@@ -18,7 +18,6 @@ public interface IFileSaver
 	[SupportedOSPlatform("Android26.0")]
 	[SupportedOSPlatform("iOS14.0")]
 	[SupportedOSPlatform("MacCatalyst14.0")]
-	[SupportedOSPlatform("Tizen")]
 	[SupportedOSPlatform("Windows")]
 	Task<FileSaverResult> SaveAsync(string initialPath, string fileName, Stream stream, CancellationToken cancellationToken = default);
 
@@ -32,7 +31,6 @@ public interface IFileSaver
 	[SupportedOSPlatform("Android")]
 	[SupportedOSPlatform("iOS14.0")]
 	[SupportedOSPlatform("MacCatalyst14.0")]
-	[SupportedOSPlatform("Tizen")]
 	[SupportedOSPlatform("Windows")]
 	Task<FileSaverResult> SaveAsync(string fileName, Stream stream, CancellationToken cancellationToken = default);
 
@@ -48,7 +46,6 @@ public interface IFileSaver
 	[SupportedOSPlatform("Android26.0")]
 	[SupportedOSPlatform("iOS14.0")]
 	[SupportedOSPlatform("MacCatalyst14.0")]
-	[SupportedOSPlatform("Tizen")]
 	[SupportedOSPlatform("Windows")]
 	Task<FileSaverResult> SaveAsync(string initialPath, string fileName, Stream stream, IProgress<double> progress, CancellationToken cancellationToken = default);
 
@@ -63,7 +60,6 @@ public interface IFileSaver
 	[SupportedOSPlatform("Android")]
 	[SupportedOSPlatform("iOS14.0")]
 	[SupportedOSPlatform("MacCatalyst14.0")]
-	[SupportedOSPlatform("Tizen")]
 	[SupportedOSPlatform("Windows")]
 	Task<FileSaverResult> SaveAsync(string fileName, Stream stream, IProgress<double> progress, CancellationToken cancellationToken = default);
 }

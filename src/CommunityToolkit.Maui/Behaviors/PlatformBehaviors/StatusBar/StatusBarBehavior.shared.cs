@@ -32,7 +32,7 @@ public enum StatusBarApplyOn
 /// Android needs 6.0 (API 23) or later. On Android 5.0 and 5.1 (API 21 and 22) the calls that the behavior makes to <see cref="StatusBar"/> do nothing, so the
 /// behavior changes neither the color nor the style of the status bar.
 /// </remarks>
-[UnsupportedOSPlatform("Windows"), UnsupportedOSPlatform("MacCatalyst"), UnsupportedOSPlatform("MacOS"), UnsupportedOSPlatform("Tizen")]
+[UnsupportedOSPlatform("Windows"), UnsupportedOSPlatform("MacCatalyst"), UnsupportedOSPlatform("MacOS")]
 public partial class StatusBarBehavior : BasePlatformBehavior<Page>
 {
 	/// <summary>
@@ -78,7 +78,7 @@ public partial class StatusBarBehavior : BasePlatformBehavior<Page>
 	public partial StatusBarApplyOn ApplyOn { get; set; } = StatusBarBehaviorDefaults.ApplyOn;
 
 
-#if !(WINDOWS || MACCATALYST || TIZEN)
+#if !(WINDOWS || MACCATALYST)
 	/// <inheritdoc /> 
 	/// <exception cref="ArgumentNullException">Thrown when <paramref name="page"/> or <paramref name="platformView"/> is <see langword="null"/>.</exception>
 #if IOS
