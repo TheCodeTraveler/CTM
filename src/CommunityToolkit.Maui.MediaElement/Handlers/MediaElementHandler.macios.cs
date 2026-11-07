@@ -34,7 +34,7 @@ public partial class MediaElementHandler : ViewHandler<MediaElement, MauiMediaEl
 	{
 		ArgumentNullException.ThrowIfNull(platformView);
 
-		if (OperatingSystem.IsIOSVersionAtLeast(16) || OperatingSystem.IsMacCatalystVersionAtLeast(16, 1))
+		if (OperatingSystem.IsIOSVersionAtLeast(16))
 		{
 			platformView.DetachFromParentViewController();
 		}
