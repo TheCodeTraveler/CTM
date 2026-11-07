@@ -373,6 +373,12 @@ sealed class WindowsMapperCameraViewHandler : CameraViewHandler
 	}
 }
 
+// A subclass, as an app's CameraViewHandler.PlatformViewFactory may return one. Partial, like the toolkit's own WinUI subclasses
+// (ExpanderLayoutPanel, MauiSemanticOrderView), for the code that CsWinRT generates
+sealed partial class WindowsMediaPlayerElementOfTheApp : MediaPlayerElement
+{
+}
+
 // CameraViewHandler and CameraView resolve ICameraProvider from IPlatformApplication.Current.Services (the runner's app). This override
 // makes them resolve the given provider until it is disposed, so a test can connect the real handler to a scripted provider. Keep it short:
 // the runner reads IPlatformApplication.Current too.
