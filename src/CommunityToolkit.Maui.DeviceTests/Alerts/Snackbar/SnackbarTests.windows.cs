@@ -101,6 +101,26 @@ public partial class SnackbarTests
 		});
 	}
 
+	[Fact]
+	public async Task ShowWithADurationOfTimeSpanMaxValueDoesNotThrowAndTheSnackbarCanBeDismissed()
+	{
+		SetupBuilder();
+		await PreparePlatformAsync();
+
+		await InvokeOnMainThreadAsync(async () =>
+		{
+			var snackbar = Snackbar.Make("Never expires", duration: TimeSpan.MaxValue);
+
+			await snackbar.Show().WaitAsync(dismissTimeout);
+
+			await AssertEventually(() => Snackbar.IsShown, timeout: 10000, message: "The snackbar was never shown.");
+
+			await snackbar.Dismiss().WaitAsync(dismissTimeout);
+
+			await AssertEventually(async () => !Snackbar.IsShown && (await GetVisibleMessagesAsync()).Count == 0, timeout: 10000, message: "The snackbar was not dismissed.");
+		});
+	}
+
 	[Theory]
 	[InlineData(0)]
 	[InlineData(-2)]
