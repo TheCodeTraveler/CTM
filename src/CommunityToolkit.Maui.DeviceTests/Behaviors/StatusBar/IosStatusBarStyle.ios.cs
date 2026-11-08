@@ -44,6 +44,34 @@ static class IosStatusBarStyle
 		return controller;
 	}
 
+	// The style that UIKit's own implementation returns for the view controller: what StatusBarTheme.Default, which StatusBarStyle.Default sets,
+	// gives back. It is not always Default: on iOS 26 UINavigationController returns DarkContent or LightContent for the appearance of its
+	// window, where iOS 18 and 27 return Default. UIKit's implementation is called directly, so a style that the toolkit failed to clear fails unless UIKit returns that same style (DarkContent for a navigation controller on iOS 26 in light mode).
+	public static unsafe UIStatusBarStyle UIKitStyle(UIViewController viewController)
+	{
+		var selector = Selector.GetHandle("preferredStatusBarStyle");
+		var implementation = UIKitImplementation(class_getInstanceMethod(NearestUIKitClass(viewController), selector));
+
+		return (UIStatusBarStyle)((delegate* unmanaged<IntPtr, IntPtr, nint>)implementation)(viewController.Handle, selector);
+	}
+
+	// The classes that .NET registers for managed subclasses (NavigationRenderer, or a test's override that returns the base style) and the ones
+	// that KVO creates are not in UIKitCore.
+	static IntPtr NearestUIKitClass(UIViewController viewController)
+	{
+		for (var objectiveCClass = object_getClass(viewController.Handle); objectiveCClass != IntPtr.Zero; objectiveCClass = class_getSuperclass(objectiveCClass))
+		{
+			if (Marshal.PtrToStringUTF8(class_getImageName(objectiveCClass)) is string imageName && imageName.EndsWith("/UIKitCore", StringComparison.Ordinal))
+			{
+				return objectiveCClass;
+			}
+		}
+
+		throw new InvalidOperationException($"{viewController.GetType().Name} derives from no UIKit class.");
+	}
+
+	static IntPtr UIKitImplementation(IntPtr method) => method_getImplementation(method);
+
 	// UIStatusBarStyle.LightContent has the value of the deprecated BlackTranslucent, whose name Enum.ToString() prints.
 	public static string Name(UIStatusBarStyle style) => style switch
 	{
@@ -100,6 +128,21 @@ static class IosStatusBarStyle
 
 	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 	delegate IntPtr CreateScreenImage();
+
+	[DllImport(ObjCRuntime.Constants.ObjectiveCLibrary)]
+	static extern IntPtr object_getClass(IntPtr obj);
+
+	[DllImport(ObjCRuntime.Constants.ObjectiveCLibrary)]
+	static extern IntPtr class_getSuperclass(IntPtr cls);
+
+	[DllImport(ObjCRuntime.Constants.ObjectiveCLibrary)]
+	static extern IntPtr class_getImageName(IntPtr cls);
+
+	[DllImport(ObjCRuntime.Constants.ObjectiveCLibrary)]
+	static extern IntPtr class_getInstanceMethod(IntPtr cls, IntPtr selector);
+
+	[DllImport(ObjCRuntime.Constants.ObjectiveCLibrary)]
+	static extern IntPtr method_getImplementation(IntPtr method);
 }
 
 // The background is neither near-white nor near-black (the tests use red pages and bars). The time, signal and battery cover about 5,500
