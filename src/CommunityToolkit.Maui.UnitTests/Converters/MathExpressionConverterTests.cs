@@ -264,6 +264,8 @@ public class MathExpressionConverterTests : BaseOneWayConverterTest<MathExpressi
 	[InlineData("fr-FR")]
 	[InlineData("en-US")]
 	[InlineData("ru-RU")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
 	public void MathExpressionConverter_NumberLiteralsAreCultureInvariant(string currentCultureName)
 	{
 		Thread.CurrentThread.CurrentCulture = new CultureInfo(currentCultureName);
@@ -285,48 +287,63 @@ public class MathExpressionConverterTests : BaseOneWayConverterTest<MathExpressi
 		converter.ConvertFrom(0d, "IF(true, 1, 2)").Should().Be(1d);
 	}
 
-	[Fact]
-	public void MathExpressionConverter_ParsesStringInputWithPassedCulture()
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void MathExpressionConverter_ParsesStringInputWithPassedCulture(string cultureName)
 	{
 		Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
 
-		var result = new MathExpressionConverter().ConvertFrom("3,5", "x * 2", new CultureInfo("de-DE"));
+		var result = new MathExpressionConverter().ConvertFrom("3,5", "x * 2", new CultureInfo(cultureName));
 
 		Assert.IsType<double>(result).Should().BeApproximately(7d, tolerance);
 	}
 
-	[Fact]
-	public void MathExpressionConverter_WithoutCulture_ParsesStringInputWithCurrentCulture()
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void MathExpressionConverter_WithoutCulture_ParsesStringInputWithCurrentCulture(string cultureName)
 	{
-		Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+		Thread.CurrentThread.CurrentCulture = new CultureInfo(cultureName);
 
 		var result = new MathExpressionConverter().ConvertFrom("3,5", "x * 2");
 
 		Assert.IsType<double>(result).Should().BeApproximately(7d, tolerance);
 	}
 
-	[Fact]
-	public void MathExpressionConverter_FormatsStrWithPassedCulture()
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void MathExpressionConverter_FormatsStrWithPassedCulture(string cultureName)
 	{
 		Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
 
-		new MathExpressionConverter().ConvertFrom(3.5d, "str(x)", new CultureInfo("de-DE")).Should().Be("3,5");
+		new MathExpressionConverter().ConvertFrom(3.5d, "str(x)", new CultureInfo(cultureName)).Should().Be("3,5");
 	}
 
-	[Fact]
-	public void MultiMathExpressionConverter_ParsesStringValuesWithPassedCulture()
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void MultiMathExpressionConverter_ParsesStringValuesWithPassedCulture(string cultureName)
 	{
 		Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
 
-		var result = new MultiMathExpressionConverter().Convert(["3,5", "2"], typeof(double), "x0 * x1", new CultureInfo("de-DE"));
+		var result = new MultiMathExpressionConverter().Convert(["3,5", "2"], typeof(double), "x0 * x1", new CultureInfo(cultureName));
 
 		Assert.IsType<double>(result).Should().BeApproximately(7d, tolerance);
 	}
 
-	[Fact]
-	public void MultiMathExpressionConverter_WithoutCulture_ParsesStringValuesWithCurrentCulture()
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void MultiMathExpressionConverter_WithoutCulture_ParsesStringValuesWithCurrentCulture(string cultureName)
 	{
-		Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+		Thread.CurrentThread.CurrentCulture = new CultureInfo(cultureName);
 
 		var result = new MultiMathExpressionConverter().Convert(["3,5", "2"], typeof(double), "x0 * x1", null);
 

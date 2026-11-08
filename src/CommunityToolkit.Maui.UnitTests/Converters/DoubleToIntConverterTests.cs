@@ -90,6 +90,8 @@ public class DoubleToIntConverterTests : BaseConverterTest<DoubleToIntConverter>
 	[InlineData("de-DE")]
 	[InlineData("en-US")]
 	[InlineData("fr-FR")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
 	public void DoubleToIntConverter_StringParameterWithDotIsInvariant(string cultureName)
 	{
 		var culture = new CultureInfo(cultureName);
@@ -101,21 +103,36 @@ public class DoubleToIntConverterTests : BaseConverterTest<DoubleToIntConverter>
 		Assert.Equal(2d, converter.ConvertBackTo(5, "2.5", culture));
 	}
 
-	[Fact]
-	public void DoubleToIntConverter_StringParameterWithCommaUsesPassedCulture()
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void DoubleToIntConverter_StringParameterWithCommaUsesPassedCulture(string cultureName)
 	{
 		Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
 		var converter = new DoubleToIntConverter();
 
-		Assert.Equal(5, converter.ConvertFrom(2, "2,5", new CultureInfo("de-DE")));
-		Assert.Equal(2d, converter.ConvertBackTo(5, "2,5", new CultureInfo("de-DE")));
+		Assert.Equal(5, converter.ConvertFrom(2, "2,5", new CultureInfo(cultureName)));
+		Assert.Equal(2d, converter.ConvertBackTo(5, "2,5", new CultureInfo(cultureName)));
+	}
+
+	[Theory]
+	[InlineData("de-DE")]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void DoubleToIntConverter_StringParameterWithCommaWithoutCultureUsesCurrentCulture(string cultureName)
+	{
+		Thread.CurrentThread.CurrentCulture = new CultureInfo(cultureName);
+
+		Assert.Equal(5, new DoubleToIntConverter().ConvertFrom(2, "2,5"));
 	}
 
 	[Fact]
-	public void DoubleToIntConverter_StringParameterWithCommaWithoutCultureUsesCurrentCulture()
+	public void DoubleToIntConverter_StringParameterWithTurkishThousandsSeparator()
 	{
-		Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+		// The invariant parse fails on the comma, so the Turkish parse with its dot as group separator applies.
+		Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
 
-		Assert.Equal(5, new DoubleToIntConverter().ConvertFrom(2, "2,5"));
+		Assert.Equal(2469, new DoubleToIntConverter().ConvertFrom(2, "1.234,5", new CultureInfo("tr-TR")));
 	}
 }

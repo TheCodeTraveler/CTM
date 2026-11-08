@@ -115,15 +115,18 @@ public class ListToStringConverterTests : BaseOneWayConverterTest<ListToStringCo
 	}
 
 	[Theory]
-	[InlineData("de-DE", "1,5;2,5")]
-	[InlineData("en-US", "1.5;2.5")]
-	[InlineData(null, "1.5;2.5")]
-	public void ListToStringConverter_FormatsFormattableItemsWithPassedCulture(string? cultureName, string expectedResult)
+	[InlineData("de-DE", "en-US", "1,5;2,5")]
+	[InlineData("tr-TR", "en-US", "1,5;2,5")]
+	[InlineData("en-US", "en-US", "1.5;2.5")]
+	[InlineData(null, "en-US", "1.5;2.5")]
+	[InlineData(null, "tr-TR", "1,5;2,5")]
+	[InlineData(null, "az-Latn-AZ", "1,5;2,5")]
+	public void ListToStringConverter_FormatsFormattableItemsWithPassedCulture(string? cultureName, string currentCultureName, string expectedResult)
 	{
 		var originalCulture = CultureInfo.CurrentCulture;
 		try
 		{
-			CultureInfo.CurrentCulture = new CultureInfo("en-US");
+			CultureInfo.CurrentCulture = new CultureInfo(currentCultureName);
 			var culture = cultureName is null ? null : new CultureInfo(cultureName);
 
 			var result = new ListToStringConverter().ConvertFrom(new List<double> { 1.5, 2.5 }, ";", culture);
@@ -134,6 +137,21 @@ public class ListToStringConverterTests : BaseOneWayConverterTest<ListToStringCo
 		{
 			CultureInfo.CurrentCulture = originalCulture;
 		}
+	}
+
+	[Theory]
+	[InlineData("tr-TR")]
+	[InlineData("az-Latn-AZ")]
+	public void ListToStringConverter_FormatsDatesWithPassedCulture(string cultureName)
+	{
+		var culture = new CultureInfo(cultureName);
+		var item = new DateTime(2026, 11, 7, 13, 37, 0);
+		Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
+
+		var result = new ListToStringConverter().ConvertFrom(new List<DateTime> { item }, ";", culture);
+
+		Assert.Equal(item.ToString(culture), result);
+		Assert.NotEqual(item.ToString(new CultureInfo("en-US")), result);
 	}
 
 	protected override object? GetInvalidConvertFromValue() => null;
