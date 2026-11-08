@@ -25,6 +25,39 @@ public sealed partial class SpeechToTextTests
 		}
 	}
 
+	// The rows are enum members, so that each test name says how the recognizer was released
+	public enum CompilingRecognizerRelease
+	{
+		Stop,
+		Dispose,
+		NewerStart
+	}
+
+	// A closed WinRT object fails its members with RO_E_CLOSED, which .NET reports as an ObjectDisposedException
+	static bool IsClosed(SpeechRecognizer recognizer)
+	{
+		try
+		{
+			_ = recognizer.State;
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return true;
+		}
+	}
+
+	// Proves that IsClosed can tell a closed recognizer on this machine, so that a test that asserts a recognizer is not closed cannot pass vacuously
+	static async Task AssertIsClosedDetectsAClosedRecognizerAsync()
+	{
+		var recognizer = await CreateIdleRecognizerOrSkipAsync();
+		Assert.False(IsClosed(recognizer));
+
+		recognizer.Dispose();
+
+		Assert.True(IsClosed(recognizer), "IsClosed cannot tell a closed recognizer on this machine");
+	}
+
 	// Nothing was started: the null check of StopRecording short-circuits, so neither the token nor StopAsync is reached.
 	[Fact]
 	public async Task StopListenAsyncWithACancelledTokenAndNothingStartedDoesNotThrow()
@@ -218,6 +251,119 @@ public sealed partial class SpeechToTextTests
 		Assert.Null(GetRecognizer(speech));
 		Assert.Equal(SpeechToTextState.Stopped, speech.CurrentState);
 		Assert.Empty(events.Results);
+
+		await speech.DisposeAsync();
+	}
+
+	// Windows.Media.Speech goes on with the compilation of a recognizer that is closed meanwhile, and the work item that does so crashed the
+	// app (an access violation on a thread-pool thread) some tests later. Starting the compilation and releasing the recognizer in one
+	// main-thread turn releases it while it compiles: the start's continuations need the main thread, and a compilation takes far longer
+	// than the few statements in between.
+	[Theory]
+	[InlineData(CompilingRecognizerRelease.Stop)]
+	[InlineData(CompilingRecognizerRelease.Dispose)]
+	[InlineData(CompilingRecognizerRelease.NewerStart)]
+	public async Task ARecognizerReleasedWhileItCompilesTheConstraintsIsClosedOnlyAfterTheCompilation(CompilingRecognizerRelease release)
+	{
+		using var probe = await CreateIdleRecognizerOrSkipAsync();
+		await AssertIsClosedDetectsAClosedRecognizerAsync();
+		var speech = CreateSpeech();
+		var events = new SpeechEventRecorder(speech);
+
+		var (starts, compiling, newer, closedWhileCompiling, newerClosedWhileCompiling) = await InvokeOnMainThreadAsync(async () =>
+		{
+			var pendingStart = speech.StartListenAsync(DefaultOptions);
+			Assert.False(pendingStart.IsCompleted, $"The start ended before it waited for the compilation: {pendingStart.Exception}");
+			var compilingRecognizer = Assert.IsType<SpeechRecognizer>(GetRecognizer(speech));
+			var pendingStarts = new List<Task> { pendingStart };
+			SpeechRecognizer? newerRecognizer = null;
+			Task releasing;
+
+			switch (release)
+			{
+				case CompilingRecognizerRelease.Stop:
+					releasing = speech.StopListenAsync();
+					break;
+				case CompilingRecognizerRelease.Dispose:
+					releasing = speech.DisposeAsync().AsTask();
+					break;
+				case CompilingRecognizerRelease.NewerStart:
+					var pendingNewerStart = speech.StartListenAsync(DefaultOptions);
+					Assert.False(pendingNewerStart.IsCompleted, $"The newer start ended before it waited for the compilation: {pendingNewerStart.Exception}");
+					newerRecognizer = Assert.IsType<SpeechRecognizer>(GetRecognizer(speech));
+					Assert.NotSame(compilingRecognizer, newerRecognizer);
+					pendingStarts.Add(pendingNewerStart);
+					releasing = Task.CompletedTask;
+					break;
+				default:
+					throw new NotSupportedException(release.ToString());
+			}
+
+			Assert.True(releasing.IsCompleted, "The release waited for the compilation");
+			var compilingClosed = IsClosed(compilingRecognizer);
+
+			var newerClosed = false;
+			if (newerRecognizer is not null)
+			{
+				releasing = speech.StopListenAsync();
+				Assert.True(releasing.IsCompleted, "The release waited for the compilation");
+				newerClosed = IsClosed(newerRecognizer);
+			}
+
+			await releasing;
+			return (pendingStarts, compilingRecognizer, newerRecognizer, compilingClosed, newerClosed);
+		});
+
+		Assert.False(closedWhileCompiling, "The release closed the recognizer while it compiled the constraints");
+		Assert.False(newerClosedWhileCompiling, "The release closed the newer recognizer while it compiled the constraints");
+
+		// Bounded, so that a start that still waits for a released recognizer fails this test instead of stopping the run
+		foreach (var start in starts)
+		{
+			var exception = await Record.ExceptionAsync(() => start.WaitAsync(TimeSpan.FromSeconds(30)));
+			Assert.Null(exception);
+		}
+
+		Assert.Null(GetRecognizer(speech));
+		Assert.Equal(SpeechToTextState.Stopped, speech.CurrentState);
+		Assert.Empty(events.Results);
+		Assert.True(await AssertHelpers.Wait(() => IsClosed(compiling), 30_000, 100), "The released recognizer was not closed after its compilation");
+		if (newer is not null)
+		{
+			Assert.True(await AssertHelpers.Wait(() => IsClosed(newer), 30_000, 100), "The released newer recognizer was not closed after its compilation");
+		}
+
+		await speech.DisposeAsync();
+	}
+
+	// Guards the contract of a cancelled start. It passes with and without the deferred close, and does not prove that the start stops
+	// waiting for the compilation, because a compilation that is fast enough ends the start either way.
+	[Fact]
+	public async Task StartListenAsyncCancelledWhileItCompilesTheConstraintsRethrowsAndReleasesTheRecognizer()
+	{
+		using var probe = await CreateIdleRecognizerOrSkipAsync();
+		await AssertIsClosedDetectsAClosedRecognizerAsync();
+		var speech = CreateSpeech();
+		var events = new SpeechEventRecorder(speech);
+		using var cancellation = new CancellationTokenSource();
+
+		var (start, compiling) = await InvokeOnMainThreadAsync(async () =>
+		{
+			var pendingStart = speech.StartListenAsync(DefaultOptions, cancellation.Token);
+			Assert.False(pendingStart.IsCompleted, $"The start ended before it waited for the compilation: {pendingStart.Exception}");
+			var compilingRecognizer = Assert.IsType<SpeechRecognizer>(GetRecognizer(speech));
+
+			await cancellation.CancelAsync();
+			return (pendingStart, compilingRecognizer);
+		});
+
+		var exception = await Record.ExceptionAsync(() => start.WaitAsync(TimeSpan.FromSeconds(30)));
+
+		Assert.IsType<OperationCanceledException>(exception, exactMatch: false);
+		Assert.Null(GetRecognizer(speech));
+		Assert.Equal(SpeechToTextState.Stopped, speech.CurrentState);
+		Assert.Empty(events.Results);
+		Assert.True(await AssertHelpers.Wait(() => IsClosed(compiling), 30_000, 100), "The released recognizer was not closed after its compilation");
 
 		await speech.DisposeAsync();
 	}
