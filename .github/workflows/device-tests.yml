@@ -365,7 +365,7 @@ jobs:
                 run: pwsh ./eng/devices/run.ps1 -Platform ios -Target buildOnly -Configuration "$DEVICE_TEST_CONFIGURATION"
 
             # A zipped artifact loses file modes (actions/upload-artifact, "Permission Loss"), and the app's executable must stay executable.
-            # The glob follows the repo's NetVersion and the runner's architecture instead of naming net10.0-ios/iossimulator-arm64.
+            # The glob follows the repo's NetVersion and the runner's architecture instead of naming net11.0-ios/iossimulator-arm64.
             -   name: Pack the app
                 shell: bash
                 run: |

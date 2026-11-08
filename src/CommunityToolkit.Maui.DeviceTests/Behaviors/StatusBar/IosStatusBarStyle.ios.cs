@@ -55,8 +55,7 @@ static class IosStatusBarStyle
 		return (UIStatusBarStyle)((delegate* unmanaged<IntPtr, IntPtr, nint>)implementation)(viewController.Handle, selector);
 	}
 
-	// The classes that .NET registers for managed subclasses (NavigationRenderer, or a test's override that returns the base style) and the ones
-	// that KVO creates are not in UIKitCore.
+	// The classes that .NET registers for managed subclasses, such as NavigationRenderer, and the ones that KVO creates are not in UIKitCore.
 	static IntPtr NearestUIKitClass(UIViewController viewController)
 	{
 		for (var objectiveCClass = object_getClass(viewController.Handle); objectiveCClass != IntPtr.Zero; objectiveCClass = class_getSuperclass(objectiveCClass))
