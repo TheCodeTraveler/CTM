@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - 'ci3381-*'
         tags:
             - '*'
         paths-ignore:
@@ -48,50 +49,6 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    build_sample:
-        name: Build Sample App using Latest .NET SDK
-        runs-on: ${{ matrix.os }}
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [ windows-latest, xcode-27 ]
-        steps:
-            -   name: Checkout code
-                uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-            -   name: Load shared environment variables
-                uses: ./.github/actions/load-shared-env
-
-            -   name: Set Latest Xcode Version
-                if: runner.os == 'macOS'
-                uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
-                with:
-                    xcode-version: ${{ env.CommunityToolkitSample_Xcode_Version }}
-
-            -   name: Install Latest .NET SDK, v${{ env.LATEST_NET_VERSION }}
-                uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-                with:
-                    dotnet-version: ${{ env.LATEST_NET_VERSION }}
-                    dotnet-quality: 'ga'
-
-            -   uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
-                with:
-                    distribution: 'microsoft'
-                    java-version: '21'
-
-            -   name: Install .NET MAUI Workload
-                run: |
-                    dotnet workload install maui
-                    dotnet workload update
-
-            -   name: Display dotnet info
-                run: dotnet --info
-
-            # MauiPackageVersion=* builds the sample and the libraries it references with the latest .NET MAUI release. They must share one
-            # version: two Microsoft.Maui.Core versions in one Windows app fail PRI generation (PRI277).
-            -   name: Build Community Toolkit Sample
-                run: dotnet build -c Release ${{ env.PathToCommunityToolkitSampleCsproj }} -p:MauiPackageVersion="*"
-    
     build_library:
         name: Build Library
         runs-on: ${{ matrix.os }}
@@ -291,187 +248,40 @@ jobs:
                 timeout-minutes: 30
                 shell: pwsh
                 run: ./eng/trim-audit/audit-win.ps1 -Variant rootlibs -Feed "${{ github.workspace }}/nuget" -Github -Summary $env:GITHUB_STEP_SUMMARY
-    
-    # Tag builds only build, sign and publish the packages, so they skip the device tests.
-    device_tests:
-        name: Device Tests
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: ./.github/workflows/device-tests.yml
 
-    # Runs whatever the tests' results, and on tag builds, which skip the device tests. What a called workflow uploads belongs to the run
-    # of the workflow that called it, so this job waits for the whole device_tests job, the Windows jobs too, which collect no coverage.
-    code_coverage:
-        name: Code Coverage
-        if: ${{ !cancelled() }}
-        needs: [ build_library, device_tests ]
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-        timeout-minutes: 15
-        steps:
-            -   name: Checkout code
-                uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-            -   name: Load shared environment variables
-                uses: ./.github/actions/load-shared-env
-
-            -   name: Install .NET SDK v${{ env.TOOLKIT_NET_VERSION }}
-                uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-                with:
-                    dotnet-version: ${{ env.TOOLKIT_NET_VERSION }}
-                    dotnet-quality: 'ga'
-
-            -   name: Download coverage
-                uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-                with:
-                    pattern: coverage-*
-                    path: artifacts/coverage
-                    merge-multiple: true
-
-            -   name: Merge coverage
-                shell: pwsh
-                run: |
-                    ./eng/coverage-report.ps1 -Report artifacts/coverage -Output artifacts/coverage-report -Note @(
-                        'Reports: `ut` is the toolkit''s unit tests (Release), `ut-*` the analyzer and source generator unit tests; the others are the device tests of Android API 36, the iOS simulator and Mac Catalyst.',
-                        'Not included: the Windows device tests (no way of collecting their coverage has been verified, so `windows.ps1` has no `-Coverage`), the Android API 28 job (one Android level is collected) and the iOS 26.5 job (one iOS version is collected).')
-
-            -   name: Upload coverage report
-                if: ${{ !cancelled() }}
+            -   name: FORK ONLY - upload the audit evidence (macOS)
+                if: ${{ always() && runner.os == 'macOS' }}
                 uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
                 with:
-                    name: code-coverage-report
-                    path: artifacts/coverage-report/
+                    name: trim-audit-macos
                     if-no-files-found: warn
+                    path: |
+                        ${{ runner.temp }}/trim-audit/*/result.json
+                        ${{ runner.temp }}/trim-audit/*/warnings-unique.tsv
+                        ${{ runner.temp }}/trim-audit/*/warnings-summary.txt
+                        ${{ runner.temp }}/trim-audit/*/warnings-counts.json
+                        ${{ runner.temp }}/trim-audit/*/warnings.log
+                        ${{ runner.temp }}/trim-audit/*/build.log
+                        ${{ runner.temp }}/trim-audit/*/assets-check.txt
+                        ${{ runner.temp }}/trim-audit/*/roots-check.txt
+                        ${{ runner.temp }}/trim-audit/*/linked-sizes.txt
+                        ${{ runner.temp }}/trim-audit/*/gate-output.txt
+                        ${{ runner.temp }}/trim-audit/*/app.txt
+                        ${{ runner.temp }}/trim-audit/nuget/NuGet.config
 
-    sign:
-        needs: [ build_library ]
-        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name != 'pull_request') }}
-        runs-on: windows-latest
-        permissions:
-            id-token: write # Required for requesting the JWT
-        
-        steps:
-            -   name: Install .NET SDK v${{ needs.build_library.outputs.toolkit-net-version }}
-                uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-                with:
-                    dotnet-version: ${{ needs.build_library.outputs.toolkit-net-version }}
-                    dotnet-quality: 'ga'
-
-            -   name: Download NuGet List
-                uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-                with:
-                    name: nuget-list
-                    path: ./
-
-            -   name: Download Package List
-                uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-                with:
-                    name: packages
-                    path: ./packages
-
-            -   name: Remove packages for MediaElement-only release
-                if: startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '-mediaelement')
-                run: |
-                    Get-ChildItem -Path "${{ github.workspace }}/packages" -Recurse -Filter "*.nupkg" | Where-Object { $_.Name -notmatch "CommunityToolkit\.Maui\.MediaElement" } | Remove-Item -Force
-
-            -   name: Remove packages for Camera-only release
-                if: startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '-camera')
-                run: |
-                    Get-ChildItem -Path "${{ github.workspace }}/packages" -Recurse -Filter "*.nupkg" | Where-Object { $_.Name -notmatch "CommunityToolkit\.Maui\.Camera" } | Remove-Item -Force
-
-            -   name: Remove packages for Core & Main release
-                if: startsWith(github.ref, 'refs/tags/') && (!endsWith(github.ref, '-mediaelement') && !endsWith(github.ref, '-camera'))
-                run: |
-                    Get-ChildItem -Path "${{ github.workspace }}/packages" -Recurse -Filter "*.nupkg" | Where-Object { $_.Name -match "CommunityToolkit\.Maui\.(Camera|MediaElement)" } | Remove-Item -Force
-
-            -   name: Install Signing Tool
-                run: dotnet tool install --tool-path ./tools sign --version 0.9.1-beta.23356.1
-
-            -   name: Sign Packages
-                run: >
-                    ./tools/sign code azure-key-vault
-                    **/*.nupkg
-                    --base-directory "${{ github.workspace }}/packages"
-                    --file-list "${{ github.workspace }}/SignClientFileList.txt"
-                    --timestamp-url "http://timestamp.digicert.com"
-                    --publisher-name ".NET Foundation"
-                    --description ".NET MAUI Community Toolkit"
-                    --description-url "https://github.com/CommunityToolkit/Maui"
-                    --azure-key-vault-url "${{ secrets.SIGN_KEY_VAULT_URL }}"
-                    --azure-key-vault-client-id ${{ secrets.SIGN_CLIENT_ID }}
-                    --azure-key-vault-client-secret "${{ secrets.SIGN_CLIENT_SECRET }}"
-                    --azure-key-vault-tenant-id ${{ secrets.SIGN_TENANT_ID }}
-                    --azure-key-vault-certificate "${{ secrets.SIGN_CERTIFICATE }}"
-                    --verbosity Information
-
-            -   name: Publish Packages
+            -   name: FORK ONLY - upload the audit evidence (Windows)
+                if: ${{ always() && runner.os == 'Windows' }}
                 uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
                 with:
-                    name: signed-packages
-                    if-no-files-found: error
+                    name: trim-audit-windows
+                    if-no-files-found: warn
                     path: |
-                        ${{ github.workspace }}/packages/**/*.nupkg
-    
-    release-main:
-        if: ${{ github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/') }}
-        needs: [ sign, build_library ]
-        runs-on: ubuntu-latest
-        
-        steps:
-            -   name: Install .NET SDK
-                uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-                with:
-                    dotnet-version: ${{ needs.build_library.outputs.toolkit-net-version }}
-                    dotnet-quality: 'ga'
-
-            -   name: Download signed packages
-                uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-                with:
-                    name: signed-packages
-                    path: ./packages
-
-            -   name: Upload artifact
-                if: github.event_name != 'pull_request'
-                run: >
-                    dotnet nuget push
-                    **/*.nupkg
-                    --source "https://nuget.pkg.github.com/CommunityToolkit/index.json"
-                    --api-key ${{ secrets.GITHUB_TOKEN }}
-                    --skip-duplicate
-    
-    release-nuget:
-        if: ${{ startsWith(github.ref, 'refs/tags/') }}
-        needs: [ sign, build_library ]
-        environment: nuget-release-gate # This gates this job until manually approved
-        permissions:
-            id-token: write
-            contents: read
-            actions: read
-        runs-on: ubuntu-latest
-        
-        steps:
-            -   name: Install .NET SDK
-                uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-                with:
-                    dotnet-version: ${{ needs.build_library.outputs.toolkit-net-version }}
-                    dotnet-quality: 'ga'
-
-            -   name: Download signed packages
-                uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-                with:
-                    name: signed-packages
-                    path: ./packages
-
-            -   name: NuGet login (OIDC)
-                id: login
-                uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
-                with:
-                    user: jfversluis_MSFT
-
-            -   name: Push to NuGet.org
-                run: >
-                    dotnet nuget push
-                    **/*.nupkg
-                    --source https://api.nuget.org/v3/index.json
-                    --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
-                    --skip-duplicate
+                        C:/ta/windows-*/result.json
+                        C:/ta/windows-*/warnings-unique.tsv
+                        C:/ta/windows-*/warnings-summary.txt
+                        C:/ta/windows-*/warnings-counts.json
+                        C:/ta/windows-*/warnings.log
+                        C:/ta/windows-*/build.log
+                        C:/ta/windows-*/assets-check.txt
+                        C:/ta/windows-*/linked-sizes.txt
+                        C:/ta/windows-*.zip
