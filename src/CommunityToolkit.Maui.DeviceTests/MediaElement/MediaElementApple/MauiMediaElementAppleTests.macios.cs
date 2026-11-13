@@ -1,9 +1,9 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using AVFoundation;
 using AVKit;
 using CommunityToolkit.Maui.Core.Views;
 using CoreGraphics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using UIKit;
 
 namespace CommunityToolkit.Maui.DeviceTests;
@@ -100,13 +100,13 @@ public class MauiMediaElementAppleTests : AppleMediaElementTestBase
 		Cleanup(view, controller);
 	}
 
-	[DllImport("/usr/lib/libobjc.dylib")]
+	[DllImport(ObjCRuntime.Constants.ObjectiveCLibrary)]
 	static extern IntPtr objc_storeWeak(IntPtr location, IntPtr value);
 
-	[DllImport("/usr/lib/libobjc.dylib")]
+	[DllImport(ObjCRuntime.Constants.ObjectiveCLibrary)]
 	static extern IntPtr objc_loadWeakRetained(IntPtr location);
 
-	[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+	[DllImport(ObjCRuntime.Constants.CoreFoundationLibrary)]
 	static extern void CFRelease(IntPtr handle);
 
 	[Fact]
