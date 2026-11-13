@@ -800,7 +800,16 @@ jobs:
             # one built-in screen.
             -   name: Run device tests
                 if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.unpack.outcome == 'success' }}
-                run: pwsh ./eng/devices/run.ps1 -Platform ios -Target testOnly -Configuration "$DEVICE_TEST_CONFIGURATION" -Runtime '${{ matrix.ios-version }}' -Timeout 01:00:00 -ResultsFolder 'artifacts/device-tests/ios-${{ matrix.ios-version }}'
+                run: pwsh ./eng/devices/ios.ps1 -Target testOnly -Configuration "$DEVICE_TEST_CONFIGURATION" -Runtime '${{ matrix.ios-version }}' -Timeout 01:00:00 -Results 'artifacts/device-tests/ios-${{ matrix.ios-version }}' -XHarnessArgs '--set-env=NSZombieEnabled=YES'
+
+            # ReportCrash writes the app's .ips after xharness has stopped looking for it (about 7 s after the abort).
+            -   name: Collect the app crash reports
+                if: always()
+                run: |
+                    sleep 30
+                    mkdir -p artifacts/device-tests/crash-reports
+                    cp ~/Library/Logs/DiagnosticReports/CommunityToolkit.Maui.DeviceTests* artifacts/device-tests/crash-reports/ || true
+                    ls -l ~/Library/Logs/DiagnosticReports/ > artifacts/device-tests/crash-reports/listing.txt || true
 
             -   name: Upload device test results
                 if: always()
