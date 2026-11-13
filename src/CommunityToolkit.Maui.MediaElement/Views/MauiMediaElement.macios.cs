@@ -38,6 +38,12 @@ public class MauiMediaElement : UIView
 	public override void LayoutSubviews()
 	{
 		base.LayoutSubviews();
+
+		if (playerView.Handle == NativeHandle.Zero)
+		{
+			return;
+		}
+
 		playerView.Frame = Bounds;
 		TryAttachToParentViewController();
 	}
@@ -109,6 +115,20 @@ public class MauiMediaElement : UIView
 
 			playerViewController.RemoveFromParentViewController();
 		}
+	}
+
+	/// <inheritdoc/>
+	protected override void Dispose(bool disposing)
+	{
+		if (disposing && playerView.Handle != NativeHandle.Zero)
+		{
+			// The managed wrapper of the player view would otherwise keep the AVKit view tree (and the AVPlayer inside its layer) alive until
+			// a later GC finalizes this view, which tears AVKit down in the middle of whatever runs then, instead of when the handler disconnects.
+			playerView.RemoveFromSuperview();
+			playerView.Dispose();
+		}
+
+		base.Dispose(disposing);
 	}
 
 	void TryAttachToParentViewController(bool forceReattach = false)
