@@ -1,0 +1,181 @@
+name: OS3380 probe (fork only, never merge)
+
+# Infra-only feasibility probe for CommunityToolkit/Maui#3380: which iOS simulator runtimes and Android emulator images
+# install and boot on today's GitHub-hosted runners. No app is built.
+on:
+    push:
+        branches: [ 'os3380-probe*' ]
+
+permissions:
+    contents: read
+
+jobs:
+    ios:
+        name: iOS ${{ matrix.ios }} on ${{ matrix.runner }} (Xcode ${{ matrix.xcode }})
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 80
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    -   { runner: macos-15, xcode: '16.4', ios: '15.5' }
+                    -   { runner: macos-15, xcode: '16.4', ios: '16.4' }
+                    -   { runner: macos-15, xcode: '16.4', ios: '17.5' }
+                    -   { runner: macos-15, xcode: '16.4', ios: '18.6' }
+                    -   { runner: macos-26, xcode: '26.6', ios: '15.5' }
+                    -   { runner: macos-26, xcode: '26.6', ios: '16.4' }
+                    -   { runner: macos-26, xcode: '26.6', ios: '17.5' }
+                    -   { runner: macos-26, xcode: '26.6', ios: '18.6' }
+        env:
+            IOS: ${{ matrix.ios }}
+            XCODE: ${{ matrix.xcode }}
+            OUT: ${{ github.workspace }}/probe-out
+        steps:
+            -   name: Select Xcode
+                run: |
+                    sudo xcode-select -s "/Applications/Xcode_${XCODE}.app"
+                    mkdir -p "$OUT"
+                    { sw_vers; uname -m; xcodebuild -version; xcodes version || true; df -h /; } 2>&1 | tee "$OUT/host.txt"
+                    xcrun simctl list runtimes 2>&1 | tee "$OUT/runtimes-before.txt"
+
+            -   name: List downloadable runtimes
+                continue-on-error: true
+                run: xcodes runtimes 2>&1 | tee "$OUT/xcodes-runtimes.txt"
+
+            -   name: Install the runtime when missing
+                id: install
+                shell: bash
+                run: |
+                    find_runtime() {
+                        xcrun simctl list runtimes -j | python3 -c '
+                    import json, sys
+                    want = sys.argv[1]
+                    for r in json.load(sys.stdin)["runtimes"]:
+                        if r["name"].startswith("iOS ") and r.get("isAvailable") and (r["version"] == want or r["version"].startswith(want + ".")):
+                            print(r["identifier"]); break
+                    ' "$IOS"
+                    }
+                    start=$(date +%s)
+                    method=preinstalled
+                    if [ -z "$(find_runtime)" ]; then
+                        method="xcodes"
+                        if ! sudo xcodes runtimes install "iOS $IOS" 2>&1 | tee "$OUT/install-xcodes.log"; then
+                            echo "xcodes failed"
+                        fi
+                        if [ -z "$(find_runtime)" ]; then
+                            method="xcodebuild"
+                            xcodebuild -downloadPlatform iOS -buildVersion "$IOS" 2>&1 | tee "$OUT/install-xcodebuild.log" || true
+                        fi
+                    fi
+                    end=$(date +%s)
+                    rt=$(find_runtime)
+                    echo "method=$method seconds=$((end-start)) runtime=${rt:-NONE}" | tee "$OUT/install.txt"
+                    xcrun simctl list runtimes 2>&1 | tee "$OUT/runtimes-after.txt"
+                    echo "runtime=$rt" >> "$GITHUB_OUTPUT"
+                    test -n "$rt"
+
+            -   name: Create and boot a simulator
+                if: steps.install.outputs.runtime != ''
+                shell: bash
+                env:
+                    RT: ${{ steps.install.outputs.runtime }}
+                run: |
+                    dt=$(xcrun simctl list runtimes -j | python3 -c '
+                    import json, sys
+                    rt = sys.argv[1]
+                    for r in json.load(sys.stdin)["runtimes"]:
+                        if r["identifier"] == rt:
+                            phones = [d for d in r.get("supportedDeviceTypes", []) if d.get("productFamily") == "iPhone"]
+                            print(phones[0]["identifier"] if phones else ""); break
+                    ' "$RT")
+                    echo "device type: $dt" | tee "$OUT/boot.txt"
+                    udid=$(xcrun simctl create "OS3380 probe" "$dt" "$RT")
+                    start=$(date +%s)
+                    xcrun simctl boot "$udid"
+                    xcrun simctl bootstatus "$udid" -b > "$OUT/bootstatus.log" 2>&1 &
+                    pid=$!
+                    for _ in $(seq 1 900); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+                    if kill -0 "$pid" 2>/dev/null; then kill "$pid"; status=timeout; elif wait "$pid"; then status="exit 0"; else status="exit $?"; fi
+                    end=$(date +%s)
+                    echo "boot status=$status seconds=$((end-start)) udid=$udid" | tee -a "$OUT/boot.txt"
+                    xcrun simctl list devices | grep -F "$udid" | tee -a "$OUT/boot.txt"
+                    xcrun simctl spawn "$udid" launchctl print system 2>&1 | head -3 | tee -a "$OUT/boot.txt" || true
+                    xcrun simctl io "$udid" screenshot "$OUT/screen.png" || true
+                    xcrun simctl shutdown "$udid" || true
+                    xcrun simctl delete "$udid" || true
+                    case "$status" in "exit 0") ;; *) exit 1 ;; esac
+
+            -   name: Summary
+                if: always()
+                run: |
+                    { echo "### iOS $IOS on ${{ matrix.runner }} (Xcode $XCODE)"; echo '```'; cat "$OUT"/install.txt "$OUT"/boot.txt 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+            -   name: Upload probe output
+                if: always()
+                uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+                with:
+                    name: probe-ios-${{ matrix.runner }}-${{ matrix.ios }}
+                    path: probe-out/
+
+    android:
+        name: Android API ${{ matrix.api }} (${{ matrix.target }})
+        runs-on: ubuntu-24.04
+        timeout-minutes: 45
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    -   { api: '24', target: google_apis }
+                    -   { api: '25', target: google_apis }
+                    -   { api: '26', target: google_apis }
+                    -   { api: '27', target: default }
+                    -   { api: '29', target: google_apis }
+                    -   { api: '30', target: google_apis }
+                    -   { api: '31', target: google_apis }
+                    -   { api: '32', target: google_apis }
+                    -   { api: '33', target: google_apis }
+                    -   { api: '34', target: google_apis }
+                    -   { api: '35', target: google_apis }
+                    -   { api: '36.1', target: google_apis }
+                    -   { api: '37.0', target: google_apis }
+        steps:
+            -   name: Enable KVM
+                run: |
+                    echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+                    sudo udevadm control --reload-rules
+                    sudo udevadm trigger --name-match=kvm --settle
+                    test -r /dev/kvm && test -w /dev/kvm
+
+            -   name: List system images for this API level
+                continue-on-error: true
+                run: |
+                    mkdir -p probe-out
+                    "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list 2>/dev/null | grep -E "system-images;android-${{ matrix.api }};|platforms;android-${{ matrix.api }}" | tee probe-out/images.txt
+
+            -   name: Boot the emulator
+                id: boot
+                uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+                with:
+                    api-level: ${{ matrix.api }}
+                    target: ${{ matrix.target }}
+                    arch: x86_64
+                    profile: pixel_7_pro
+                    cores: 4
+                    ram-size: 4096M
+                    disk-size: 6000M
+                    force-avd-creation: false
+                    emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
+                    disable-animations: true
+                    script: |
+                        adb shell getprop ro.build.version.sdk | tee -a probe-out/device.txt
+                        adb shell getprop ro.build.version.release | tee -a probe-out/device.txt
+                        adb shell getprop ro.build.fingerprint | tee -a probe-out/device.txt
+                        adb shell getprop ro.product.cpu.abilist | tee -a probe-out/device.txt
+                        adb shell pm list features | grep -i camera | tee -a probe-out/device.txt || true
+
+            -   name: Upload probe output
+                if: always()
+                uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+                with:
+                    name: probe-android-${{ matrix.api }}
+                    path: probe-out/
