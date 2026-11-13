@@ -1,0 +1,69 @@
+name: OS3380 probe 2 (fork only, never merge)
+
+# Why do the Android 7 (API 24/25) x86_64 emulators never finish booting with the repo's emulator settings? One variable per job.
+on:
+    push:
+        branches: [ 'os3380-probe2*' ]
+
+permissions:
+    contents: read
+
+jobs:
+    android:
+        name: API ${{ matrix.api }} ${{ matrix.variant }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 25
+        strategy:
+            fail-fast: false
+            matrix:
+                api: [ '25', '24' ]
+                variant: [ baseline-pixel2, gpu-guest, no-disk-size, ram-2048, target-default, profile-none ]
+                include:
+                    -   { variant: baseline-pixel2, profile: pixel_2, gpu: swiftshader_indirect, disk: 6000M, ram: 4096M, target: google_apis }
+                    -   { variant: gpu-guest, profile: pixel_7_pro, gpu: guest, disk: 6000M, ram: 4096M, target: google_apis }
+                    -   { variant: no-disk-size, profile: pixel_7_pro, gpu: swiftshader_indirect, disk: '', ram: 4096M, target: google_apis }
+                    -   { variant: ram-2048, profile: pixel_7_pro, gpu: swiftshader_indirect, disk: 6000M, ram: 2048M, target: google_apis }
+                    -   { variant: target-default, profile: pixel_7_pro, gpu: swiftshader_indirect, disk: 6000M, ram: 4096M, target: default }
+                    -   { variant: profile-none, profile: '', gpu: swiftshader_indirect, disk: 6000M, ram: 4096M, target: google_apis }
+        steps:
+            -   name: Enable KVM
+                run: |
+                    echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+                    sudo udevadm control --reload-rules
+                    sudo udevadm trigger --name-match=kvm --settle
+                    test -r /dev/kvm && test -w /dev/kvm
+                    mkdir -p probe-out
+
+            -   name: Boot the emulator
+                uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+                with:
+                    api-level: ${{ matrix.api }}
+                    target: ${{ matrix.target }}
+                    arch: x86_64
+                    profile: ${{ matrix.profile }}
+                    cores: 4
+                    ram-size: ${{ matrix.ram }}
+                    disk-size: ${{ matrix.disk }}
+                    force-avd-creation: false
+                    emulator-boot-timeout: 600
+                    emulator-options: -no-snapshot -no-window -gpu ${{ matrix.gpu }} -noaudio -no-boot-anim -no-metrics -camera-back emulated -camera-front emulated
+                    disable-animations: true
+                    script: |
+                        timeout 30 adb shell getprop ro.build.version.sdk | tee -a probe-out/device.txt
+                        timeout 30 adb shell getprop ro.build.fingerprint | tee -a probe-out/device.txt
+                        timeout 30 adb shell wm size | tee -a probe-out/device.txt || true
+                        timeout 60 adb shell pm list packages | wc -l | tee -a probe-out/device.txt
+
+            -   name: AVD config and emulator state
+                if: always()
+                run: |
+                    cat ~/.android/avd/test.avd/config.ini > probe-out/config.ini 2>&1 || true
+                    timeout 20 adb devices -l | tee probe-out/adb-devices.txt || true
+                    timeout 30 adb logcat -d -t 400 > probe-out/logcat-tail.txt 2>&1 || true
+
+            -   name: Upload probe output
+                if: always()
+                uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+                with:
+                    name: probe2-android-${{ matrix.api }}-${{ matrix.variant }}
+                    path: probe-out/
