@@ -1,0 +1,59 @@
+name: OS3380 J1 probe (fork only, never merge)
+
+# Native UIKit probe for CommunityToolkit/Maui#3380 (StatusBar on iOS 15/16): what UIWindowScene.statusBarManager.statusBarStyle and
+# UIApplication.statusBarStyle report for Default, LightContent and DarkContent, in light and dark mode, view-controller based and not.
+on:
+    push:
+        branches: [ 'os3380-j1probe*' ]
+
+permissions:
+    contents: read
+
+jobs:
+    probe:
+        name: iOS ${{ matrix.ios }} ${{ matrix.device }}
+        runs-on: macos-15
+        timeout-minutes: 60
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    -   { ios: '15.5', device: 'iPhone-SE-3rd-generation' }
+                    -   { ios: '15.5', device: 'iPhone-13' }
+                    -   { ios: '16.4', device: 'iPhone-14-Pro' }
+        steps:
+            -   uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            -   name: Xcode 16.4 and the runtime
+                run: |
+                    sudo xcode-select -s /Applications/Xcode_16.4.app
+                    sudo xcodes runtimes install "iOS ${{ matrix.ios }}"
+                    xcrun simctl list runtimes
+            -   name: Build the probe
+                working-directory: .github/os3380-j1probe
+                run: |
+                    SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+                    xcrun --sdk iphonesimulator clang -target arm64-apple-ios15.0-simulator -isysroot "$SDK" -fno-objc-arc -Wall -Wno-unguarded-availability-new \
+                      -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation -o probe.bin main.m
+                    for mode in vcbased appstyle; do
+                      mkdir -p probe-$mode.app; cp probe.bin probe-$mode.app/probe; cp Info-$mode.plist probe-$mode.app/Info.plist; codesign -s - --force probe-$mode.app
+                    done
+            -   name: Run the probe
+                working-directory: .github/os3380-j1probe
+                run: |
+                    rt=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; v=sys.argv[1]; print([r["identifier"] for r in json.load(sys.stdin)["runtimes"] if r["name"].startswith("iOS ") and r["version"].startswith(v)][0])' "${{ matrix.ios }}")
+                    udid=$(xcrun simctl create "J1 probe" "com.apple.CoreSimulator.SimDeviceType.${{ matrix.device }}" "$rt")
+                    xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b > /dev/null
+                    mkdir -p out
+                    for mode in vcbased appstyle; do
+                      bundle=com.ctm.j1.statusbar.$mode
+                      xcrun simctl install "$udid" probe-$mode.app
+                      xcrun simctl launch --terminate-running-process --stdout="$PWD/out/$mode.txt" --stderr="$PWD/out/$mode-err.txt" "$udid" "$bundle"
+                      for i in $(seq 1 90); do grep -q DONE out/$mode.txt 2>/dev/null && break; sleep 1; done
+                      xcrun simctl terminate "$udid" "$bundle" || true
+                      echo "=== $mode"; cat out/$mode.txt
+                    done
+            -   uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+                if: always()
+                with:
+                    name: j1probe-${{ matrix.ios }}-${{ matrix.device }}
+                    path: .github/os3380-j1probe/out/
