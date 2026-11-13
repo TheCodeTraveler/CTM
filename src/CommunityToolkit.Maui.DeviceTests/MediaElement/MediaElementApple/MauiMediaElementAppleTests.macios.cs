@@ -1,6 +1,9 @@
+using AVFoundation;
 using AVKit;
 using CommunityToolkit.Maui.Core.Views;
 using CoreGraphics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using UIKit;
 
 namespace CommunityToolkit.Maui.DeviceTests;
@@ -59,6 +62,52 @@ public class MauiMediaElementAppleTests : AppleMediaElementTestBase
 		child.View?.RemoveFromSuperview();
 		child.RemoveFromParentViewController();
 	}
+
+	[Fact]
+	public async Task DisposeReleasesThePlayerViewWithoutWaitingForGarbageCollection()
+	{
+		SetupApple();
+		var weakPlayerView = Marshal.AllocHGlobal(IntPtr.Size);
+		Marshal.WriteIntPtr(weakPlayerView, IntPtr.Zero);
+
+		try
+		{
+			await InvokeOnMainThreadAsync(() => CreateAndDisposeMediaElement(weakPlayerView));
+			await DrainMainQueueAsync();
+
+			var survivor = objc_loadWeakRetained(weakPlayerView);
+			if (survivor != IntPtr.Zero)
+			{
+				CFRelease(survivor);
+			}
+
+			Assert.Equal(IntPtr.Zero, survivor);
+		}
+		finally
+		{
+			objc_storeWeak(weakPlayerView, IntPtr.Zero);
+			Marshal.FreeHGlobal(weakPlayerView);
+		}
+	}
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	void CreateAndDisposeMediaElement(IntPtr weakPlayerView)
+	{
+		var controller = new AVPlayerViewController { Player = new AVPlayer() };
+		var view = new MauiMediaElement(controller, CreateMediaElement());
+		objc_storeWeak(weakPlayerView, controller.View!.Handle);
+
+		Cleanup(view, controller);
+	}
+
+	[DllImport("/usr/lib/libobjc.dylib")]
+	static extern IntPtr objc_storeWeak(IntPtr location, IntPtr value);
+
+	[DllImport("/usr/lib/libobjc.dylib")]
+	static extern IntPtr objc_loadWeakRetained(IntPtr location);
+
+	[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+	static extern void CFRelease(IntPtr handle);
 
 	[Fact]
 	public async Task ConstructorAddsThePlayerViewAsSubview()
