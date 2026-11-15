@@ -12,8 +12,10 @@
 # The headless runners write the hits files when the tests have run (CoverageRecorder in CommunityToolkit.Maui.DeviceTests.Runners); on
 # Android xharness copies them from the device to the host before it uninstalls the app. On Windows the runners find the hits folder in
 # devicetestcoverage.txt next to the results file, because a packaged app does not inherit the script's environment.
-# Coverage never changes a run's exit code, except that a failed build of the instrumented app fails the run, as any failed build does:
-# a run whose coverage fails otherwise reports a warning and has no coverage report.
+# Coverage never changes a run's exit code, except that a failed build of the instrumented app fails the run, as any failed build does,
+# and that Android 11 (API 30) fails the run: it blocks adb pull of the app's external files folder, so XHarness ends with 84
+# (DEVICE_FILE_COPY_FAILURE) and the run is retried and fails again. Otherwise a run whose coverage fails reports a warning and has no
+# coverage report.
 
 $script:DeviceTestCoverageAssemblies = @(
     'CommunityToolkit.Maui'
@@ -76,7 +78,6 @@ function Get-DeviceTestReferences {
     }
 
     $referencesJson = $text.Substring($start)
-    Write-Host "Reference query: $($referencesJson.Length) characters of JSON."
     $json = $referencesJson | ConvertFrom-Json
     return , @($json.Items.ReferencePath)
 }

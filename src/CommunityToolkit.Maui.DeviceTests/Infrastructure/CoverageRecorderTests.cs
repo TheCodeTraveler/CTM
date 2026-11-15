@@ -2,7 +2,7 @@ using CommunityToolkit.Maui.DeviceTests.Runners;
 
 namespace CommunityToolkit.Maui.DeviceTests;
 
-[Category(TestCategory.CoverageRecorder)]
+[Category(TestCategory.DeviceTestsInfrastructure)]
 public sealed class CoverageRecorderTests : IDisposable
 {
 	readonly string resultsFolder = Path.Combine(Path.GetTempPath(), $"ctm-coverage-recorder-{Guid.NewGuid():N}");

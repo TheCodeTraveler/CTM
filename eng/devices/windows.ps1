@@ -771,7 +771,7 @@ try {
     $architecture = Get-DeviceTestHostArchitecture
     $context.DeviceDescription = "$env:COMPUTERNAME, Windows $([System.Environment]::OSVersion.Version), $Packaging, win-$architecture"
 
-    # A coverage run builds the app in every target but buildOnly, a testOnly run included.
+    # A coverage run builds the app for testOnly too: the app it would find was built without coverage.
     if ($Target -ne 'testOnly' -or $context.Coverage) {
         $thumbprint = ''
         if ($Packaging -eq 'packaged') {
