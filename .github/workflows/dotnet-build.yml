@@ -328,7 +328,8 @@ jobs:
                 run: |
                     ./eng/coverage-report.ps1 -Report artifacts/coverage -Output artifacts/coverage-report -Note @(
                         'Reports: `ut` is the toolkit''s unit tests (Release), `ut-*` the analyzer and source generator unit tests; the others are the device tests of Windows (packaged and unpackaged), Android API 36 and 25, the iOS simulator and Mac Catalyst.',
-                        'Not included: CsWinRT generated code, and the device tests of the other Android API levels and iOS versions (only Android API 36 and 25 and iOS 27.2 collect coverage).')
+                        'Not included: CsWinRT generated code, and the device tests of the other Android API levels and iOS versions (only Android API 36 and 25 and iOS 27.2 collect coverage).',
+                        'Branches of one line are not added up across reports (the best report counts), so an OS version check that two legs take both ways still shows half its branches.')
 
             -   name: Upload coverage report
                 if: ${{ !cancelled() }}

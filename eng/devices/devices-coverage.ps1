@@ -77,8 +77,7 @@ function Get-DeviceTestReferences {
         throw "dotnet $(Format-DeviceTestCommandLine $arguments) failed with exit code $($result.ExitCode):`n$text"
     }
 
-    $referencesJson = $text.Substring($start)
-    $json = $referencesJson | ConvertFrom-Json
+    $json = $text.Substring($start) | ConvertFrom-Json
     return , @($json.Items.ReferencePath)
 }
 
