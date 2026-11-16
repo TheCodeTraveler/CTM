@@ -38,6 +38,28 @@ public class MauiMediaElementWindowsTests : WinMediaTestBase
 			return new ViewFixture(view, element, player, stockControls);
 		});
 
+	[Fact]
+	public async Task DisposingViewsWithoutASourceNeverAssignsTheSourceAndSurvivesManyCycles()
+	{
+		SetupWindowsBuilder();
+		await RequireMediaPlayerAsync();
+		const int cycles = 500;
+
+		for (var i = 0; i < cycles; i++)
+		{
+			var fixture = await CreateViewAsync();
+			await InvokeOnMainThreadAsync(() =>
+			{
+				var sourceChanges = 0;
+				fixture.Player.SourceChanged += (_, _) => sourceChanges++;
+
+				fixture.View.Dispose();
+
+				Assert.Equal(0, sourceChanges);
+			});
+		}
+	}
+
 	// Leaves the view in the state of every view that was on screen with its controls enabled: OnTemplateLoaded has subscribed it to the
 	// template's FullWindowButton.
 	async Task ApplyTemplateAsync(MauiMediaElement view, MediaPlayerElement element)
