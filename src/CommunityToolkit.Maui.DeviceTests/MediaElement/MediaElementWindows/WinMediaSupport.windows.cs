@@ -93,7 +93,8 @@ static class WinMediaAssets
 	/// <summary>
 	/// The out-of-process stream behind a thumbnail fails now and then for reasons unrelated to what was published: the process that serves it
 	/// went away (<see cref="IsOutOfProcessServerGone"/>; seen on the Windows Server 2025 runners), or the stream reported its file missing
-	/// (FileNotFoundException, 0x80070002; seen in WinMediaProbe's DisplayUpdater probe on the Windows 11 VM, whose next run read the same artwork). CI runs 43659048173, 43710310626 and 43871375088 hit it too; opening the same thumbnail again read it.
+	/// (FileNotFoundException, 0x80070002; seen in WinMediaProbe's DisplayUpdater probe on the Windows 11 VM, whose next run read the same artwork). CI runs 43659048173, 43710310626 and 43871375088 hit it too.
+	/// The logs show the system fetches the same URI at the same moment; opening the thumbnail again read it.
 	/// </summary>
 	public static bool IsTransientThumbnailReadFailure(Exception exception) =>
 		IsOutOfProcessServerGone(exception) || exception is FileNotFoundException { HResult: unchecked((int)0x80070002) };

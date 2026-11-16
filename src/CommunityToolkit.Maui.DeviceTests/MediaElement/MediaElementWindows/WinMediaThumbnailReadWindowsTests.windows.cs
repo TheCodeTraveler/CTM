@@ -82,7 +82,7 @@ public class WinMediaThumbnailReadWindowsTests : WinMediaTestBase
 			reads++;
 			return reads is 1
 				? throw TransientFailure(unchecked((int)0x80070002))
-				: WinMediaAssets.ReadThumbnailOnceAsync(thumbnail);
+				: Task.FromResult(WinMediaAssets.ReadArtworkBytes());
 		});
 
 		Assert.Null(reason);
