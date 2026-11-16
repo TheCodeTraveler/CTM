@@ -46,15 +46,13 @@ public class MauiMediaElementWindowsTests : WinMediaTestBase
 	{
 		SetupWindowsBuilder();
 		await RequireMediaPlayerAsync();
-		const int cycles = 500;
+		const int cycles = 5;
 
-		// The view disposes its own player, and a cleanup that paused it again would log 500 first-chance E_ABORT exceptions.
-		// The fixtures stay referenced: finalizing 500 unreferenced WinUI elements on the UI thread made this test take over a minute.
-		var fixtures = new List<ViewFixture>(cycles);
+		// A few cycles suffice: the old code failed the first one deterministically. The view disposes its own player,
+		// and a cleanup that paused it again would log a first-chance E_ABORT exception per cycle.
 		for (var i = 0; i < cycles; i++)
 		{
 			var fixture = await CreateViewAsync(releaseInCleanup: false);
-			fixtures.Add(fixture);
 			await InvokeOnMainThreadAsync(() =>
 			{
 				var sourceChanges = 0;
@@ -65,8 +63,6 @@ public class MauiMediaElementWindowsTests : WinMediaTestBase
 				Assert.Equal(0, sourceChanges);
 			});
 		}
-
-		GC.KeepAlive(fixtures);
 	}
 
 	// Leaves the view in the state of every view that was on screen with its controls enabled: OnTemplateLoaded has subscribed it to the
