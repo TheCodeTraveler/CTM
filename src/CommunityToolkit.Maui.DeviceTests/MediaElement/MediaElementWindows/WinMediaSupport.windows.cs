@@ -68,6 +68,19 @@ static class WinMediaAssets
 	public static void DisposeSource(MediaPlayer player) =>
 		(player.Source is MediaPlaybackItem item ? item.Source : player.Source as IDisposable)?.Dispose();
 
+	// A Source assignment starts an engine load whose async error work item races MediaPlayer.Dispose (an MFMediaEngine access violation), so
+	// only a player that has a source gets Source = null.
+	public static IDisposable? TakeSource(MediaPlayer player)
+	{
+		var source = player.Source is MediaPlaybackItem item ? item.Source : player.Source as IDisposable;
+		if (player.Source is not null)
+		{
+			player.Source = null;
+		}
+
+		return source;
+	}
+
 	public static byte[] ReadVideoBytes() => File.ReadAllBytes(VideoPath);
 
 	public static byte[] ReadArtworkBytes() => File.ReadAllBytes(ArtworkPath);
