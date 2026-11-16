@@ -533,6 +533,7 @@ public partial class StatusBarTests
 
 	// UIKit can report the final status bar frame of a rotation after the last layout of the window and sends no notification, and a window that
 	// is not laid out gets no further layout: the view must read the frame again by itself.
+	// The frame is restored within the view's ~1 s of settle checks, which is how long a late change stays followed.
 	[Fact]
 	public async Task StatusBarViewFollowsAStatusBarFrameThatChangesAfterItsLastLayout()
 	{
@@ -565,12 +566,12 @@ public partial class StatusBarTests
 			await InvokeOnMainThreadAsync(static () => { });
 			await InvokeOnMainThreadAsync(static () => { });
 
-			StatusBar.ReadStatusBarFrame = readRealStatusBarFrame;
+			await InvokeOnMainThreadAsync(() => StatusBar.ReadStatusBarFrame = readRealStatusBarFrame);
 			await AssertStatusBarViewsCoverTheStatusBarAsync(false);
 		}
 		finally
 		{
-			StatusBar.ReadStatusBarFrame = readRealStatusBarFrame;
+			await InvokeOnMainThreadAsync(() => StatusBar.ReadStatusBarFrame = readRealStatusBarFrame);
 		}
 	}
 

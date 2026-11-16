@@ -240,9 +240,8 @@ static partial class StatusBar
 			}
 		}
 
-		// UIKit sends no notification when the status bar frame of a scene changes, and on iOS 15 to 26 it can change after the window's last layout
-		// (iOS 26 updates it one turn after the layout of a rotation, iOS 15 when SpringBoard reports the new orientation). It also does not lay out a
-		// window that is not on screen, so the checks read the frame themselves.
+		// UIKit sends no notification when a scene's status bar frame changes, and it can change after the window's last layout (iOS 26 one turn later),
+		// so the settle checks read the frame themselves.
 		bool RefreshFrame()
 		{
 			if (Window is not UIWindow window || ReadStatusBarFrame(window) is not CGRect statusBarFrame)
@@ -250,8 +249,7 @@ static partial class StatusBar
 				return false;
 			}
 
-			var isStale = sizedFor != new StatusBarGeometry(window.Bounds.Size, window.SafeAreaInsets, statusBarFrame)
-				|| Frame != GetStatusBarFrame(window, statusBarFrame, isUsingSafeArea);
+			var isStale = sizedFor != new StatusBarGeometry(window.Bounds.Size, window.SafeAreaInsets, statusBarFrame);
 
 			if (isStale)
 			{
