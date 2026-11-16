@@ -344,9 +344,12 @@ static class WinMediaProbe
 			}
 
 			var thumbnail = await TestDispatcher.Current.DispatchAsync(() => player!.SystemMediaTransportControls.DisplayUpdater.Thumbnail);
-			return thumbnail is null
-				? ("the DisplayUpdater returns no thumbnail after one was assigned", null)
-				: (null, thumbnail);
+			if (thumbnail is null)
+			{
+				return ("the DisplayUpdater returns no thumbnail after one was assigned", null);
+			}
+
+			return (null, thumbnail);
 		}
 	}
 
