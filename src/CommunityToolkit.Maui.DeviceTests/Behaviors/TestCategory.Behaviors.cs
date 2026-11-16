@@ -17,6 +17,7 @@ public static partial class TestCategory
 	public const string StatusBarBehavior = nameof(StatusBarBehavior);
 
 	public const string StatusBar = nameof(StatusBar);
+	public const string R5SBProbe = nameof(R5SBProbe);
 
 	public const string TouchBehavior = nameof(TouchBehavior);
 
