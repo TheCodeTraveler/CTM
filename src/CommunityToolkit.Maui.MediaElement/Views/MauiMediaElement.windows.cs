@@ -97,8 +97,8 @@ public partial class MauiMediaElement : Grid, IDisposable
 			mediaPlayer.Pause();
 
 			// Assigning Source starts an engine load whose async error work item races MediaPlayer.Dispose, an access violation in MFMediaEngine
-			var mediaSource = mediaPlayer.Source as Windows.Media.Core.MediaSource;
-			if (mediaPlayer.Source is not null)
+			var attachedSource = mediaPlayer.Source;
+			if (attachedSource is not null)
 			{
 				mediaPlayer.Source = null;
 			}
@@ -106,7 +106,7 @@ public partial class MauiMediaElement : Grid, IDisposable
 			mediaPlayerElement.SetMediaPlayer(null);
 
 			// https://learn.microsoft.com/en-us/windows/uwp/audio-video-camera/play-audio-and-video-with-mediaplayer Shows how to dispose the MediaSource
-			mediaSource?.Dispose();
+			(attachedSource as Windows.Media.Core.MediaSource)?.Dispose();
 			mediaPlayer.Dispose();
 		}
 
