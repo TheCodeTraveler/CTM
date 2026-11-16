@@ -262,7 +262,9 @@ static class WinMediaProbe
 		}
 	}
 
-	static async Task<string?> ProbeDisplayUpdaterAsync()
+	static Task<string?> ProbeDisplayUpdaterAsync() => ProbeDisplayUpdaterAsync(WinMediaAssets.ReadThumbnailOnceAsync);
+
+	public static async Task<string?> ProbeDisplayUpdaterAsync(Func<IRandomAccessStreamReference, Task<byte[]>> readThumbnailOnce)
 	{
 		var playerReason = await PlayerUnavailableReason;
 		if (playerReason is not null)
@@ -300,7 +302,7 @@ static class WinMediaProbe
 				return "the DisplayUpdater returns no thumbnail after one was assigned";
 			}
 
-			var bytes = await WinMediaAssets.ReadAllBytesAsync(thumbnail).WaitAsync(TimeSpan.FromSeconds(15));
+			var bytes = await readThumbnailOnce(thumbnail);
 			return bytes.AsSpan().SequenceEqual(WinMediaAssets.ReadArtworkBytes())
 				? null
 				: $"the thumbnail read back from the DisplayUpdater delivers {bytes.Length} bytes that are not the artwork that was assigned";

@@ -98,6 +98,10 @@ static class WinMediaAssets
 	public static bool IsTransientThumbnailReadFailure(Exception exception) =>
 		IsOutOfProcessServerGone(exception) || exception is FileNotFoundException { HResult: unchecked((int)0x80070002) };
 
+	public static readonly TimeSpan ThumbnailReadTimeout = TimeSpan.FromSeconds(15);
+
+	public static Task<byte[]> ReadThumbnailOnceAsync(IRandomAccessStreamReference thumbnail) => ReadAllBytesAsync(thumbnail).WaitAsync(ThumbnailReadTimeout);
+
 	public static async Task<byte[]> ReadAllBytesAsync(IRandomAccessStreamReference reference)
 	{
 		using var stream = await reference.OpenReadAsync();
