@@ -531,6 +531,49 @@ public partial class StatusBarTests
 		}
 	}
 
+	// UIKit can report the final status bar frame of a rotation after the last layout of the window and sends no notification, and a window that
+	// is not laid out gets no further layout: the view must read the frame again by itself.
+	[Fact]
+	public async Task StatusBarViewFollowsAStatusBarFrameThatChangesAfterItsLastLayout()
+	{
+		SetupBuilder();
+		await ResetNativeStateAsync();
+		var readRealStatusBarFrame = StatusBar.ReadStatusBarFrame;
+
+		try
+		{
+			await InvokeOnMainThreadAsync(() =>
+			{
+				StatusBar.SetColor(Colors.Red);
+				StatusBar.SetBarSize(false);
+			});
+			await AssertStatusBarViewsCoverTheStatusBarAsync(false);
+
+			await InvokeOnMainThreadAsync(() =>
+			{
+				StatusBar.ReadStatusBarFrame = window => readRealStatusBarFrame(window) is CGRect real && !real.IsEmpty
+					? new CGRect(real.X, real.Y, real.Width + 292, real.Height)
+					: readRealStatusBarFrame(window);
+
+				foreach (var window in IosStatusBarViews.WindowsWithStatusBar())
+				{
+					Assert.Single(IosStatusBarViews.TaggedSubviews(window)).SetNeedsLayout();
+					window.LayoutIfNeeded();
+				}
+			});
+
+			await InvokeOnMainThreadAsync(static () => { });
+			await InvokeOnMainThreadAsync(static () => { });
+
+			StatusBar.ReadStatusBarFrame = readRealStatusBarFrame;
+			await AssertStatusBarViewsCoverTheStatusBarAsync(false);
+		}
+		finally
+		{
+			StatusBar.ReadStatusBarFrame = readRealStatusBarFrame;
+		}
+	}
+
 	// UIKit takes the style from the view controllers: SetStyle sets Window.StatusBarTheme of the app's windows, whose view controllers return the
 	// style of their theme.
 	// Each step sets a style that differs from the one before, so every assertion proves a change.

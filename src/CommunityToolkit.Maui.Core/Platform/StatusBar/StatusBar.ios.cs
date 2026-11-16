@@ -21,7 +21,7 @@ static partial class StatusBar
 	{
 		foreach (var window in GetApplicationWindows())
 		{
-			var statusBarFrame = window.WindowScene?.StatusBarManager?.StatusBarFrame;
+			var statusBarFrame = ReadStatusBarFrame(window);
 			if (statusBarFrame is null)
 			{
 				continue;
@@ -42,7 +42,7 @@ static partial class StatusBar
 
 		foreach (var window in GetApplicationWindows())
 		{
-			var statusBarFrame = window.WindowScene?.StatusBarManager?.StatusBarFrame;
+			var statusBarFrame = ReadStatusBarFrame(window);
 			if (statusBarFrame is null)
 			{
 				continue;
@@ -63,6 +63,9 @@ static partial class StatusBar
 			TryUpdateStatusBarAppearance(window);
 		}
 	}
+
+	// The device tests replace it: UIKit gives no way to hand a window a stale status bar frame that later becomes current.
+	internal static Func<UIWindow, CGRect?> ReadStatusBarFrame { get; set; } = static window => window.WindowScene?.StatusBarManager?.StatusBarFrame;
 
 	// Only the app's own windows get a status bar view. UIApplication.Windows also contains
 	// system windows (e.g. UITextEffectsWindow, created after a text input gets focus), which sit
@@ -229,7 +232,7 @@ static partial class StatusBar
 			base.LayoutSubviews();
 
 			if (Window is UIWindow window
-				&& window.WindowScene?.StatusBarManager?.StatusBarFrame is CGRect statusBarFrame
+				&& ReadStatusBarFrame(window) is CGRect statusBarFrame
 				&& sizedFor != new StatusBarGeometry(window.Bounds.Size, window.SafeAreaInsets, statusBarFrame))
 			{
 				SizeToStatusBar(window, statusBarFrame, isUsingSafeArea);
