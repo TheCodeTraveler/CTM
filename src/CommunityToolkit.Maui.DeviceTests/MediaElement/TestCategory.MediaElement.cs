@@ -11,6 +11,8 @@ public static partial class TestCategory
 
 	public const string MediaManagerWindows = nameof(MediaManagerWindows);
 
+	public const string R5winDiag = nameof(R5winDiag);
+
 	public const string MediaManagerPlaybackWindows = nameof(MediaManagerPlaybackWindows);
 
 	public const string MediaManagerSourceWindows = nameof(MediaManagerSourceWindows);
