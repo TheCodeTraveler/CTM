@@ -738,7 +738,12 @@ partial class MediaManager : IDisposable
 
 		// File, Uri and Resource sources are given to the MediaPlayer itself (Set*Source), not through MediaPlayerElement.Source. Its Source can
 		// then still be null, and setting null again is not forwarded to the player, so the player's own source is cleared as well.
-		player.MediaPlayer?.Source = null;
+		// A player without a source is left alone: assigning null to it starts a media engine load that can race a quick Dispose.
+		if (player.MediaPlayer?.Source is not null)
+		{
+			player.MediaPlayer.Source = null;
+		}
+
 		MediaElement.MediaWidth = MediaElement.MediaHeight = 0;
 
 		lock (metadataLock)
