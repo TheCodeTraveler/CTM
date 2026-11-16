@@ -210,6 +210,9 @@ static partial class StatusBar
 
 		bool isUsingSafeArea;
 		StatusBarGeometry? sizedFor;
+		int settleGeneration;
+
+		static readonly TimeSpan[] settleDelays = [TimeSpan.Zero, TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(600)];
 
 		public StatusBarView()
 		{
@@ -231,16 +234,62 @@ static partial class StatusBar
 		{
 			base.LayoutSubviews();
 
-			if (Window is UIWindow window
-				&& ReadStatusBarFrame(window) is CGRect statusBarFrame
-				&& sizedFor != new StatusBarGeometry(window.Bounds.Size, window.SafeAreaInsets, statusBarFrame))
+			if (RefreshFrame())
+			{
+				ScheduleSettleChecks();
+			}
+		}
+
+		// UIKit sends no notification when the status bar frame of a scene changes, and on iOS 15 to 26 it can change after the window's last layout
+		// (iOS 26 updates it one turn after the layout of a rotation, iOS 15 when SpringBoard reports the new orientation). It also does not lay out a
+		// window that is not on screen, so the checks read the frame themselves.
+		bool RefreshFrame()
+		{
+			if (Window is not UIWindow window || ReadStatusBarFrame(window) is not CGRect statusBarFrame)
+			{
+				return false;
+			}
+
+			var isStale = sizedFor != new StatusBarGeometry(window.Bounds.Size, window.SafeAreaInsets, statusBarFrame)
+				|| Frame != GetStatusBarFrame(window, statusBarFrame, isUsingSafeArea);
+
+			if (isStale)
 			{
 				SizeToStatusBar(window, statusBarFrame, isUsingSafeArea);
-
-				// iOS 26 lays out the window of a rotation before it updates the status bar frame (still empty when an iPhone turns back to portrait),
-				// and nothing lays the view out after the update: one more layout once UIKit has finished the current update reads the new frame.
-				CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(SetNeedsLayout);
 			}
+
+			return isStale;
+		}
+
+		// Checks again after each delay and starts over whenever one of them changed the frame, so nothing runs once the frame is stable.
+		void ScheduleSettleChecks()
+		{
+			var generation = ++settleGeneration;
+			RunSettleCheck(generation, 0);
+		}
+
+		void RunSettleCheck(int generation, int delayIndex)
+		{
+			if (delayIndex >= settleDelays.Length)
+			{
+				return;
+			}
+
+			CoreFoundation.DispatchQueue.MainQueue.DispatchAfter(new CoreFoundation.DispatchTime(CoreFoundation.DispatchTime.Now, settleDelays[delayIndex]), () =>
+			{
+				if (generation != settleGeneration)
+				{
+					return;
+				}
+
+				if (RefreshFrame())
+				{
+					ScheduleSettleChecks();
+					return;
+				}
+
+				RunSettleCheck(generation, delayIndex + 1);
+			});
 		}
 	}
 
