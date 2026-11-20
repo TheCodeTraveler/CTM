@@ -2,6 +2,8 @@ using System.Diagnostics;
 using Xunit.Sdk;
 using static CommunityToolkit.Maui.DeviceTests.AssertHelpers;
 #if IOS || MACCATALYST
+using System.Runtime.ExceptionServices;
+using CommunityToolkit.Maui.DeviceTests.Runners;
 using PlatformView = UIKit.UIView;
 #elif ANDROID
 using Microsoft.Maui.Platform;
@@ -134,6 +136,46 @@ static class VisualBehaviorHelpers
 		await AssertionExtensions.WaitForGC(references);
 	}
 
+#if IOS || MACCATALYST
+	// The finalizer thread releases protocol wrappers (BaseWrapper) of UIKit objects without the main-thread hop that NSObject peers get, so
+	// a free main thread tearing down text inputs during the pass races with it (NSRangeException in -[_UIKeyboardTextSelectionInteraction
+	// detach]). The main thread therefore waits for the pass; the final finalizer wait keeps the last forced collection from finalizing later.
+	static Task CollectOnNewThreadAsync() => TestDispatcher.Current.DispatchAsync(() =>
+	{
+		ExceptionDispatchInfo? failure = null;
+
+		var thread = new Thread(() =>
+		{
+			try
+			{
+				GC.Collect();
+				GC.WaitForPendingFinalizers();
+				GC.Collect(2, GCCollectionMode.Forced, true);
+				GC.WaitForPendingFinalizers();
+				GC.Collect(2, GCCollectionMode.Forced, true);
+				GC.WaitForPendingFinalizers();
+			}
+			catch (Exception ex)
+			{
+				failure = ExceptionDispatchInfo.Capture(ex);
+			}
+		})
+		{
+			IsBackground = true,
+			Name = nameof(CollectOnNewThreadAsync)
+		};
+
+		AssertionExtensions.ClearStack();
+		thread.Start();
+
+		if (!thread.Join(collectionTimeout))
+		{
+			throw new TimeoutException($"The forced collection did not finish within {collectionTimeout}.");
+		}
+
+		failure?.Throw();
+	});
+#else
 	// The collections of AssertionExtensions.Collect, on a thread that has run nothing else.
 	static Task CollectOnNewThreadAsync()
 	{
@@ -163,4 +205,5 @@ static class VisualBehaviorHelpers
 
 		return collected.Task;
 	}
+#endif
 }
