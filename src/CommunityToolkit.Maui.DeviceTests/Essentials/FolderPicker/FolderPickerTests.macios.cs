@@ -334,7 +334,9 @@ public partial class FolderPickerTests
 		pickerDelegate = null!;
 		operation = null!;
 
-		// The library keeps the picker until it has been off screen for a while, see DocumentPickerRelease
+		// The library keeps the picker until it has been off screen for a while, see DocumentPickerRelease. Waiting for that release first
+		// keeps the parked collection passes, which slow down every delayed check, out of the GC budget.
+		await AssertionExtensions.AssertEventuallyAsync(() => Task.FromResult(references[0].Target is not NSObject releasedPicker || releasedPicker.Handle == NativeHandle.Zero), timeout: 10000, message: "The picker was never released.");
 		await VisualBehaviorHelpers.WaitForGCAsync(references);
 	}
 
