@@ -188,7 +188,7 @@ jobs:
             # and the coverlet process that instrumented them must still run when the tests have run (eng/devices/README.md, "Code coverage").
             -   name: Build device test apps
                 if: ${{ env.DEVICE_TEST_COVERAGE != 'true' }}
-                run: pwsh ./eng/devices/run.ps1 -Platform android -Target buildOnly -Configuration "$DEVICE_TEST_CONFIGURATION" ${{ matrix.trimming != 'none' && format('-BuildArgs ''/p:CtmDeviceTestsTrimming={0}''', matrix.trimming) || '' }}
+                run: pwsh ./eng/devices/run.ps1 -Platform android -Target buildOnly -Configuration "$DEVICE_TEST_CONFIGURATION" ${{ matrix.trimming == 'nativeaot' && '-BuildArgs ''/p:CtmDeviceTestsTrimming=nativeaot;PublishAot=false''' || '' }}
 
             -   name: Check that the app is ${{ matrix.trimming == 'nativeaot' && 'compiled with NativeAOT' || 'fully trimmed' }}
                 id: check
