@@ -1,0 +1,22 @@
+name: OS3380 dedupe caller (fork only, never merge)
+
+# Mirrors dotnet-build.yml's two calls of device-tests.yml, so the check names compose as in a Build run ("Device Tests / ..." and
+# "Trimmed Device Tests / ..."), both calls share one run's artifact namespace, and github.event_name is push (coverage on), as in a Build run.
+on:
+    push:
+        branches:
+            - 'os3380-dedupe-[0-9]*'
+
+permissions:
+    contents: read
+
+jobs:
+    device_tests:
+        name: Device Tests
+        uses: ./.github/workflows/device-tests.yml
+
+    device_tests_trimmed:
+        name: Trimmed Device Tests
+        uses: ./.github/workflows/device-tests.yml
+        with:
+            trimming: full-and-nativeaot
