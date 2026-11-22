@@ -415,7 +415,7 @@ jobs:
                         emulator-features: -feature -HardwareDecoder
                     # The newest Android 17 release ships only as a 16 KB page-size image, where a native library or mmap that assumes 4 KB pages
                     # breaks (Play requires 16 KB support from target API 35). Software decoder as on the 4 KB Android 17 leg, unprobed without it.
-                    -   api-level: '37.2'
+                    -   api-level: '37.1'
                         target: google_apis_ps16k
                         emulator-features: -feature -HardwareDecoder
         env:
