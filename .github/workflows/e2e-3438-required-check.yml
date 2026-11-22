@@ -1,0 +1,16 @@
+name: E2E 3438
+on:
+    pull_request:
+        branches: [ 'e2e-3438-base-*' ]
+    push:
+        branches: [ 'e2e-3438-base-*' ]
+permissions:
+    contents: read
+jobs:
+    required:
+        name: E2E Required Check
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            # The wait shows auto-merge turned on while the required check is still running, and leaves time for E13's push.
+            -   run: sleep 180 && test "$(cat e2e/stub-result.txt)" = pass
